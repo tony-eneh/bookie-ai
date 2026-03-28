@@ -130,10 +130,12 @@ export class GoalsService {
     });
 
     const newCurrentAmount = Number(goal.currentAmount) + dto.amount;
-    const status = this.calculateStatus({
-      ...goal,
-      currentAmount: { toNumber: () => newCurrentAmount } as never,
-    });
+    const status = this.calculateStatusFromValues(
+      Number(goal.targetAmount),
+      newCurrentAmount,
+      goal.targetDate,
+      goal.createdAt,
+    );
 
     await this.prisma.goal.update({
       where: { id: goalId },
@@ -270,25 +272,33 @@ export class GoalsService {
     targetAmount: unknown;
     currentAmount: unknown;
     targetDate: Date;
+    createdAt: Date;
   }): GoalStatus {
-    const target = Number(goal.targetAmount);
-    const current = Number(goal.currentAmount);
+    return this.calculateStatusFromValues(
+      Number(goal.targetAmount),
+      Number(goal.currentAmount),
+      goal.targetDate,
+      goal.createdAt,
+    );
+  }
 
-    if (current >= target) return 'ACHIEVED';
+  private calculateStatusFromValues(
+    targetAmount: number,
+    currentAmount: number,
+    targetDate: Date,
+    createdAt: Date,
+  ): GoalStatus {
+    if (currentAmount >= targetAmount) return 'ACHIEVED';
 
     const now = new Date();
-    const totalDuration = goal.targetDate.getTime() - now.getTime();
+    const totalDuration = targetDate.getTime() - createdAt.getTime();
+    const timeElapsed = now.getTime() - createdAt.getTime();
 
-    if (totalDuration <= 0) return 'OFF_TRACK';
+    if (totalDuration <= 0 || now >= targetDate) return 'OFF_TRACK';
 
-    const progressRatio = current / target;
-    const timeElapsedRatio =
-      1 -
-      totalDuration /
-        (goal.targetDate.getTime() -
-          (goal.targetDate.getTime() - totalDuration));
+    const progressRatio = currentAmount / targetAmount;
+    const timeElapsedRatio = timeElapsed / totalDuration;
 
-    // If progress >= time elapsed ratio, on track
     if (progressRatio >= timeElapsedRatio * 0.8) return 'ON_TRACK';
     if (progressRatio >= timeElapsedRatio * 0.6) return 'AT_RISK';
     return 'OFF_TRACK';
