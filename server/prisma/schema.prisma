@@ -1,0 +1,476 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum FxPreference {
+  REAL_TIME
+  DAILY_AVERAGE
+  MANUAL_OVERRIDE
+}
+
+enum NotificationMode {
+  MINIMAL
+  STANDARD
+  PROACTIVE
+  COACH
+}
+
+enum FinancialPersonality {
+  GENTLE
+  DIRECT
+  COACH_LIKE
+}
+
+enum IncomeStyle {
+  FIXED_SALARY
+  IRREGULAR
+  BUSINESS
+  MIXED
+}
+
+enum AccountType {
+  BANK
+  WALLET
+  CASH
+  SAVINGS
+  BUSINESS
+}
+
+enum ConnectedAccountStatus {
+  ACTIVE
+  INACTIVE
+  REVOKED
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+  TRANSFER
+}
+
+enum SourceType {
+  SMS
+  EMAIL
+  VOICE
+  MANUAL
+  AI_IMPORT
+}
+
+enum ClarificationStatus {
+  NONE
+  PENDING
+  ANSWERED
+  DISMISSED
+}
+
+enum ClarificationItemStatus {
+  PENDING
+  ANSWERED
+  DISMISSED
+}
+
+enum AnswerSource {
+  VOICE
+  TEXT
+  TAP
+}
+
+enum BudgetPeriodType {
+  WEEKLY
+  MONTHLY
+}
+
+enum GoalPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum GoalStatus {
+  ON_TRACK
+  AT_RISK
+  OFF_TRACK
+  ACHIEVED
+}
+
+enum InsightSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum ReconciliationSource {
+  SMS
+  EMAIL
+  MANUAL
+  STATEMENT
+}
+
+// ─── Models ──────────────────────────────────────────────────────────────────
+
+model User {
+  id                    String               @id @default(uuid()) @db.Uuid
+  email                 String               @unique
+  passwordHash          String?              @map("password_hash")
+  fullName              String               @map("full_name")
+  country               String?
+  primaryCurrency       String               @default("USD") @map("primary_currency")
+  secondaryCurrencies   String[]             @default([]) @map("secondary_currencies")
+  fxPreference          FxPreference         @default(REAL_TIME) @map("fx_preference")
+  language              String               @default("en")
+  onboardingCompleted   Boolean              @default(false) @map("onboarding_completed")
+  notificationMode      NotificationMode     @default(STANDARD) @map("notification_mode")
+  financialPersonality  FinancialPersonality @default(GENTLE) @map("financial_personality")
+  incomeStyle           IncomeStyle          @default(FIXED_SALARY) @map("income_style")
+  createdAt             DateTime             @default(now()) @map("created_at")
+  updatedAt             DateTime             @updatedAt @map("updated_at")
+
+  accounts             Account[]
+  connectedAccounts    ConnectedAccount[]
+  transactions         Transaction[]
+  categories           Category[]
+  clarifications       Clarification[]
+  budgets              Budget[]
+  goals                Goal[]
+  insights             Insight[]
+  notifications        Notification[]
+  merchantAliases      MerchantAlias[]
+  incomeTargets        IncomeTarget[]
+  statementImports     StatementImport[]
+  scenarioSimulations  ScenarioSimulation[]
+  refreshTokens        RefreshToken[]
+
+  @@map("users")
+}
+
+model Account {
+  id                     String                  @id @default(uuid()) @db.Uuid
+  userId                 String                  @map("user_id") @db.Uuid
+  name                   String
+  type                   AccountType
+  currency               String                  @default("USD")
+  currentBalance         Decimal                 @default(0) @map("current_balance") @db.Decimal(19, 4)
+  lastReconciledBalance  Decimal?                @map("last_reconciled_balance") @db.Decimal(19, 4)
+  lastReconciledAt       DateTime?               @map("last_reconciled_at")
+  isPrimary              Boolean                 @default(false) @map("is_primary")
+  isActive               Boolean                 @default(true) @map("is_active")
+  createdAt              DateTime                @default(now()) @map("created_at")
+  updatedAt              DateTime                @updatedAt @map("updated_at")
+
+  user            User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions    Transaction[]
+  reconciliations AccountReconciliation[]
+  statementImports StatementImport[]
+
+  @@index([userId])
+  @@map("accounts")
+}
+
+model ConnectedAccount {
+  id            String                 @id @default(uuid()) @db.Uuid
+  userId        String                 @map("user_id") @db.Uuid
+  providerType  String                 @map("provider_type")
+  providerEmail String                 @map("provider_email")
+  accessToken   String?                @map("access_token")
+  refreshToken  String?                @map("refresh_token")
+  scopes        String?
+  status        ConnectedAccountStatus @default(ACTIVE)
+  createdAt     DateTime               @default(now()) @map("created_at")
+  updatedAt     DateTime               @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("connected_accounts")
+}
+
+model Transaction {
+  id                      String              @id @default(uuid()) @db.Uuid
+  userId                  String              @map("user_id") @db.Uuid
+  accountId               String              @map("account_id") @db.Uuid
+  type                    TransactionType
+  amount                  Decimal             @db.Decimal(19, 4)
+  currency                String
+  originalCurrency        String?             @map("original_currency")
+  convertedAmount         Decimal?            @map("converted_amount") @db.Decimal(19, 4)
+  fxRateUsed              Decimal?            @map("fx_rate_used") @db.Decimal(19, 8)
+  occurredAt              DateTime            @map("occurred_at")
+  description             String?
+  merchantName            String?             @map("merchant_name")
+  counterparty            String?
+  categoryId              String?             @map("category_id") @db.Uuid
+  subcategory             String?
+  sourceType              SourceType          @map("source_type")
+  sourceRef               String?             @map("source_ref")
+  rawContent              String?             @map("raw_content")
+  parseConfidence         Float               @default(1.0) @map("parse_confidence")
+  categoryConfidence      Float               @default(1.0) @map("category_confidence")
+  needsClarification      Boolean             @default(false) @map("needs_clarification")
+  clarificationStatus     ClarificationStatus @default(NONE) @map("clarification_status")
+  note                    String?
+  isRecurringGuess        Boolean             @default(false) @map("is_recurring_guess")
+  balanceAfterTransaction Decimal?            @map("balance_after_transaction") @db.Decimal(19, 4)
+  isBalanceSource         Boolean             @default(false) @map("is_balance_source")
+  createdAt               DateTime            @default(now()) @map("created_at")
+  updatedAt               DateTime            @updatedAt @map("updated_at")
+
+  user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account          Account            @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  category         Category?          @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  clarifications   Clarification[]
+  goalContributions GoalContribution[]
+
+  @@index([userId])
+  @@index([accountId])
+  @@index([categoryId])
+  @@index([occurredAt])
+  @@map("transactions")
+}
+
+model Category {
+  id        String          @id @default(uuid()) @db.Uuid
+  userId    String?         @map("user_id") @db.Uuid
+  name      String
+  type      TransactionType
+  icon      String          @default("📦")
+  color     String?
+  isDefault Boolean         @default(false) @map("is_default")
+  createdAt DateTime        @default(now()) @map("created_at")
+
+  user            User?           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions    Transaction[]
+  budgets         Budget[]
+  merchantAliases MerchantAlias[]
+
+  @@index([userId])
+  @@map("categories")
+}
+
+model Clarification {
+  id            String                  @id @default(uuid()) @db.Uuid
+  userId        String                  @map("user_id") @db.Uuid
+  transactionId String                  @map("transaction_id") @db.Uuid
+  questionText  String                  @map("question_text")
+  status        ClarificationItemStatus
+  answerText    String?                 @map("answer_text")
+  answerSource  AnswerSource?           @map("answer_source")
+  createdAt     DateTime                @default(now()) @map("created_at")
+  resolvedAt    DateTime?               @map("resolved_at")
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([transactionId])
+  @@map("clarifications")
+}
+
+model Budget {
+  id         String           @id @default(uuid()) @db.Uuid
+  userId     String           @map("user_id") @db.Uuid
+  name       String
+  categoryId String?          @map("category_id") @db.Uuid
+  periodType BudgetPeriodType @map("period_type")
+  amount     Decimal          @db.Decimal(19, 4)
+  currency   String
+  startDate  DateTime         @map("start_date")
+  endDate    DateTime?        @map("end_date")
+  isActive   Boolean          @default(true) @map("is_active")
+  createdAt  DateTime         @default(now()) @map("created_at")
+  updatedAt  DateTime         @updatedAt @map("updated_at")
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([categoryId])
+  @@map("budgets")
+}
+
+model Goal {
+  id                    String       @id @default(uuid()) @db.Uuid
+  userId                String       @map("user_id") @db.Uuid
+  title                 String
+  description           String?
+  targetAmount          Decimal      @map("target_amount") @db.Decimal(19, 4)
+  currentAmount         Decimal      @default(0) @map("current_amount") @db.Decimal(19, 4)
+  targetCurrency        String       @default("USD") @map("target_currency")
+  targetDate            DateTime     @map("target_date")
+  priority              GoalPriority @default(MEDIUM)
+  linkedBudgetStrategy  String?      @map("linked_budget_strategy")
+  monthlyRequiredAmount Decimal?     @map("monthly_required_amount") @db.Decimal(19, 4)
+  requiredMonthlyIncome Decimal?     @map("required_monthly_income") @db.Decimal(19, 4)
+  status                GoalStatus   @default(ON_TRACK)
+  createdAt             DateTime     @default(now()) @map("created_at")
+  updatedAt             DateTime     @updatedAt @map("updated_at")
+
+  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contributions GoalContribution[]
+
+  @@index([userId])
+  @@map("goals")
+}
+
+model GoalContribution {
+  id               String   @id @default(uuid()) @db.Uuid
+  goalId           String   @map("goal_id") @db.Uuid
+  transactionId    String?  @map("transaction_id") @db.Uuid
+  amount           Decimal  @db.Decimal(19, 4)
+  currency         String
+  convertedAmount  Decimal? @map("converted_amount") @db.Decimal(19, 4)
+  contributionDate DateTime @map("contribution_date")
+  sourceType       String   @map("source_type")
+
+  goal        Goal         @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  transaction Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+
+  @@index([goalId])
+  @@index([transactionId])
+  @@map("goal_contributions")
+}
+
+model Insight {
+  id          String          @id @default(uuid()) @db.Uuid
+  userId      String          @map("user_id") @db.Uuid
+  insightType String          @map("insight_type")
+  title       String
+  body        String
+  severity    InsightSeverity @default(INFO)
+  periodStart DateTime?       @map("period_start")
+  periodEnd   DateTime?       @map("period_end")
+  metadata    Json?
+  createdAt   DateTime        @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("insights")
+}
+
+model Notification {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  type          String
+  title         String
+  body          String
+  readAt        DateTime? @map("read_at")
+  actionPayload Json?     @map("action_payload")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("notifications")
+}
+
+model MerchantAlias {
+  id              String  @id @default(uuid()) @db.Uuid
+  userId          String  @map("user_id") @db.Uuid
+  matchPattern    String  @map("match_pattern")
+  merchantName    String? @map("merchant_name")
+  categoryId      String  @map("category_id") @db.Uuid
+  transactionType String? @map("transaction_type")
+  confidenceBoost Float   @default(0.1) @map("confidence_boost")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([categoryId])
+  @@map("merchant_aliases")
+}
+
+model IncomeTarget {
+  id                  String    @id @default(uuid()) @db.Uuid
+  userId              String    @map("user_id") @db.Uuid
+  title               String
+  targetMonthlyIncome Decimal   @map("target_monthly_income") @db.Decimal(19, 4)
+  effectiveFrom       DateTime  @map("effective_from")
+  effectiveTo         DateTime? @map("effective_to")
+  reason              String?
+  createdAt           DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("income_targets")
+}
+
+model AccountReconciliation {
+  id          String               @id @default(uuid()) @db.Uuid
+  accountId   String               @map("account_id") @db.Uuid
+  balance     Decimal              @db.Decimal(19, 4)
+  source      ReconciliationSource
+  driftAmount Decimal?             @map("drift_amount") @db.Decimal(19, 4)
+  createdAt   DateTime             @default(now()) @map("created_at")
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+  @@map("account_reconciliations")
+}
+
+model StatementImport {
+  id                    String  @id @default(uuid()) @db.Uuid
+  userId                String  @map("user_id") @db.Uuid
+  accountId             String  @map("account_id") @db.Uuid
+  source                String
+  fileType              String  @map("file_type")
+  parsedSuccessfully    Boolean @default(false) @map("parsed_successfully")
+  transactionsImported  Int     @default(0) @map("transactions_imported")
+  createdAt             DateTime @default(now()) @map("created_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([accountId])
+  @@map("statement_imports")
+}
+
+model ScenarioSimulation {
+  id            String  @id @default(uuid()) @db.Uuid
+  userId        String  @map("user_id") @db.Uuid
+  inputPayload  Json    @map("input_payload")
+  resultPayload Json?   @map("result_payload")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("scenario_simulations")
+}
+
+model FxRate {
+  id             String   @id @default(uuid()) @db.Uuid
+  baseCurrency   String   @map("base_currency")
+  targetCurrency String   @map("target_currency")
+  rate           Decimal  @db.Decimal(19, 8)
+  source         String   @default("api")
+  fetchedAt      DateTime @map("fetched_at")
+
+  @@unique([baseCurrency, targetCurrency])
+  @@index([baseCurrency, targetCurrency])
+  @@map("fx_rates")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
