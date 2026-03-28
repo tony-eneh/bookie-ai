@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  NotFoundException,
   Patch,
   UseGuards,
 } from '@nestjs/common';
@@ -28,9 +29,7 @@ export class UsersController {
   async getProfile(@CurrentUser() user: { userId: string }) {
     const found = await this.usersService.findById(user.userId);
     if (!found) {
-      throw new (await import('@nestjs/common')).NotFoundException(
-        'User not found',
-      );
+      throw new NotFoundException('User not found');
     }
     const { passwordHash: _, ...result } = found;
     return result;

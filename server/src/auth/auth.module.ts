@@ -15,7 +15,7 @@ import { UsersModule } from '../users/users.module.js';
       useFactory: (configService: ConfigService): JwtModuleOptions => ({
         secret: configService.get<string>('JWT_SECRET', 'default-secret'),
         signOptions: {
-          expiresIn: configService.get<string>('JWT_EXPIRATION', '15m') as any,
+          expiresIn: configService.get<number>('JWT_EXPIRATION_SECONDS', 900),
         },
       }),
       inject: [ConfigService],
