@@ -2,6 +2,7 @@ import {
   ConflictException,
   Injectable,
   Logger,
+  NotImplementedException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -10,8 +11,8 @@ import { hash, compare } from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { UsersService } from '../users/users.service.js';
-import type { RegisterDto } from './dto/register.dto.js';
 import type { GoogleAuthDto } from './dto/google-auth.dto.js';
+import type { RegisterDto } from './dto/register.dto.js';
 
 @Injectable()
 export class AuthService {
@@ -119,46 +120,28 @@ export class AuthService {
       return { message: 'If the email exists, a reset link has been sent' };
     }
 
-    // TODO: Generate reset token and send email in production
-    this.logger.log(`Password reset requested for ${email}`);
+    this.logger.warn(
+      `Password reset requested for ${email}, but email delivery is not configured yet`,
+    );
     return { message: 'If the email exists, a reset link has been sent' };
   }
 
   async resetPassword(_token: string, _newPassword: string) {
-    // TODO: Implement token validation and password reset in production
-    this.logger.log('Password reset attempted');
-    return { message: 'Password reset functionality coming soon' };
+    this.logger.warn(
+      'Password reset attempted before reset-token validation was implemented',
+    );
+    throw new NotImplementedException(
+      'Password reset token validation is not implemented yet.',
+    );
   }
 
-  async googleAuth(dto: GoogleAuthDto) {
-    // TODO: Verify Google ID token in production
-    let user = await this.usersService.findByEmail(dto.email);
-
-    if (!user) {
-      user = await this.prisma.user.create({
-        data: {
-          email: dto.email,
-          fullName: dto.fullName ?? dto.email.split('@')[0],
-        },
-      });
-
-      // Create default account for new Google user
-      await this.prisma.account.create({
-        data: {
-          userId: user.id,
-          name: 'Main Account',
-          type: 'BANK',
-          currency: user.primaryCurrency,
-          isPrimary: true,
-        },
-      });
-    }
-
-    const tokens = await this.generateTokens(user.id, user.email);
-    return {
-      user: { id: user.id, email: user.email, fullName: user.fullName },
-      ...tokens,
-    };
+  async googleAuth(_dto: GoogleAuthDto) {
+    this.logger.warn(
+      'Google auth requested before ID token verification was implemented',
+    );
+    throw new NotImplementedException(
+      'Google OAuth is not enabled until ID token verification is implemented.',
+    );
   }
 
   async generateTokens(userId: string, email: string) {
@@ -167,10 +150,13 @@ export class AuthService {
     const accessToken = this.jwtService.sign(payload);
 
     const refreshToken = uuidv4();
-    const refreshExpirationDays = this.configService.get<number>(
-      'JWT_REFRESH_EXPIRATION_DAYS',
-      7,
+    const refreshExpirationDays = Number(
+      this.configService.get<string>('JWT_REFRESH_EXPIRATION_DAYS') ?? '7',
     );
+
+    if (!Number.isFinite(refreshExpirationDays) || refreshExpirationDays <= 0) {
+      throw new Error('JWT_REFRESH_EXPIRATION_DAYS must be a positive number');
+    }
 
     await this.prisma.refreshToken.create({
       data: {

@@ -8,16 +8,36 @@ import { JwtStrategy } from './strategies/jwt.strategy.js';
 import { LocalStrategy } from './strategies/local.strategy.js';
 import { UsersModule } from '../users/users.module.js';
 
+function getPositiveNumberEnv(
+  configService: ConfigService,
+  key: string,
+  fallback: number,
+) {
+  const value = Number(configService.get<string>(key) ?? fallback.toString());
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new Error(`${key} must be a positive number`);
+  }
+  return value;
+}
+
 @Module({
   imports: [
     PassportModule,
     JwtModule.registerAsync({
-      useFactory: (configService: ConfigService): JwtModuleOptions => ({
-        secret: configService.get<string>('JWT_SECRET', 'default-secret'),
-        signOptions: {
-          expiresIn: configService.get<number>('JWT_EXPIRATION_SECONDS', 900),
-        },
-      }),
+      useFactory: (configService: ConfigService): JwtModuleOptions => {
+        const jwtSecret = configService.getOrThrow<string>('JWT_SECRET');
+
+        return {
+          secret: jwtSecret,
+          signOptions: {
+            expiresIn: getPositiveNumberEnv(
+              configService,
+              'JWT_EXPIRATION_SECONDS',
+              900,
+            ),
+          },
+        };
+      },
       inject: [ConfigService],
     }),
     UsersModule,

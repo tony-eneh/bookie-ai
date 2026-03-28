@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '../../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { RespondClarificationDto } from './dto/respond-clarification.dto.js';
 import type { ClarificationItemStatus } from '../../generated/prisma/client.js';
@@ -63,37 +64,72 @@ export class ClarificationsService {
   }
 
   async respond(id: string, userId: string, dto: RespondClarificationDto) {
-    const clarification = await this.findById(id, userId);
+    return this.prisma.$transaction(async (tx) => {
+      const clarification = await tx.clarification.findUnique({
+        where: { id },
+        include: { transaction: true },
+      });
 
-    const updated = await this.prisma.clarification.update({
-      where: { id },
-      data: {
-        answerText: dto.answerText,
-        answerSource: dto.answerSource,
-        status: 'ANSWERED',
-        resolvedAt: new Date(),
-      },
-      include: { transaction: true },
+      if (!clarification || clarification.userId !== userId) {
+        throw new NotFoundException('Clarification not found');
+      }
+
+      const nextTransactionType =
+        dto.transactionType ?? clarification.transaction.type;
+      const currentAmount = Number(clarification.transaction.amount);
+      const currentDelta = this.getBalanceDelta(
+        clarification.transaction.type,
+        currentAmount,
+      );
+      const nextDelta = this.getBalanceDelta(nextTransactionType, currentAmount);
+      const balanceAdjustment = nextDelta - currentDelta;
+
+      let balanceAfterTransaction = clarification.transaction.balanceAfterTransaction;
+      if (Math.abs(balanceAdjustment) > 0.001) {
+        const updatedAccount = await tx.account.update({
+          where: { id: clarification.transaction.accountId },
+          data: {
+            currentBalance: {
+              increment: new Prisma.Decimal(balanceAdjustment.toFixed(4)),
+            },
+          },
+        });
+        balanceAfterTransaction = updatedAccount.currentBalance;
+      }
+
+      await tx.clarification.update({
+        where: { id },
+        data: {
+          answerText: dto.answerText,
+          answerSource: dto.answerSource,
+          status: 'ANSWERED',
+          resolvedAt: new Date(),
+        },
+      });
+
+      const transactionUpdate: Prisma.TransactionUncheckedUpdateInput = {
+        needsClarification: false,
+        clarificationStatus: 'ANSWERED',
+      };
+
+      if (dto.categoryId) {
+        transactionUpdate.categoryId = dto.categoryId;
+      }
+      if (dto.transactionType) {
+        transactionUpdate.type = dto.transactionType;
+        transactionUpdate.balanceAfterTransaction = balanceAfterTransaction;
+      }
+
+      await tx.transaction.update({
+        where: { id: clarification.transactionId },
+        data: transactionUpdate,
+      });
+
+      return tx.clarification.findUnique({
+        where: { id },
+        include: { transaction: true },
+      });
     });
-
-    const transactionUpdate: Record<string, unknown> = {
-      needsClarification: false,
-      clarificationStatus: 'ANSWERED',
-    };
-
-    if (dto.categoryId) {
-      transactionUpdate.categoryId = dto.categoryId;
-    }
-    if (dto.transactionType) {
-      transactionUpdate.type = dto.transactionType;
-    }
-
-    await this.prisma.transaction.update({
-      where: { id: clarification.transactionId },
-      data: transactionUpdate,
-    });
-
-    return updated;
   }
 
   async dismiss(id: string, userId: string) {
@@ -116,5 +152,13 @@ export class ClarificationsService {
     });
 
     return updated;
+  }
+
+  private getBalanceDelta(type: string, amount: number) {
+    if (type === 'INCOME') {
+      return amount;
+    }
+
+    return -amount;
   }
 }

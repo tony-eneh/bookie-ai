@@ -1,13 +1,12 @@
 import {
   Injectable,
   NotFoundException,
-  ForbiddenException,
 } from '@nestjs/common';
+import { Prisma } from '../../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateAccountDto } from './dto/create-account.dto.js';
 import { UpdateAccountDto } from './dto/update-account.dto.js';
 import { ReconcileAccountDto } from './dto/reconcile-account.dto.js';
-import { Decimal } from '../../generated/prisma/internal/prismaNamespace.js';
 
 @Injectable()
 export class AccountsService {
@@ -173,7 +172,7 @@ export class AccountsService {
           userId,
           accountId: account.id,
           type: drift > 0 ? 'INCOME' : 'EXPENSE',
-          amount: new Decimal(Math.abs(drift).toFixed(4)),
+          amount: new Prisma.Decimal(Math.abs(drift).toFixed(4)),
           currency: account.currency,
           occurredAt: new Date(),
           description: `Reconciliation adjustment (${dto.source})`,

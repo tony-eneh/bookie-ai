@@ -3,21 +3,25 @@ import {
   Controller,
   Get,
   Post,
-  UnauthorizedException,
+  Request,
   UseGuards,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiBody,
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
-import { AuthService } from './auth.service.js';
-import { RegisterDto } from './dto/register.dto.js';
-import { LoginDto } from './dto/login.dto.js';
-import { GoogleAuthDto } from './dto/google-auth.dto.js';
-import { RefreshDto } from './dto/refresh.dto.js';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard.js';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard.js';
+import { AuthService } from './auth.service.js';
+import { ForgotPasswordDto } from './dto/forgot-password.dto.js';
+import { GoogleAuthDto } from './dto/google-auth.dto.js';
+import { LoginDto } from './dto/login.dto.js';
+import { RefreshDto } from './dto/refresh.dto.js';
+import { RegisterDto } from './dto/register.dto.js';
+import { ResetPasswordDto } from './dto/reset-password.dto.js';
+import { LocalAuthGuard } from './guards/local-auth.guard.js';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -31,17 +35,18 @@ export class AuthController {
   }
 
   @Post('login')
+  @UseGuards(LocalAuthGuard)
+  @ApiBody({ type: LoginDto })
   @ApiOperation({ summary: 'Login with email and password' })
-  async login(@Body() dto: LoginDto) {
-    const user = await this.authService.validateUser(dto.email, dto.password);
-    if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-    return this.authService.login(user.id);
+  async login(@Request() req: { user: { id: string } }) {
+    return this.authService.login(req.user.id);
   }
 
   @Post('google')
-  @ApiOperation({ summary: 'Authenticate with Google' })
+  @ApiOperation({
+    summary:
+      'Authenticate with Google (placeholder until ID token verification is implemented)',
+  })
   google(@Body() dto: GoogleAuthDto) {
     return this.authService.googleAuth(dto);
   }
@@ -64,15 +69,21 @@ export class AuthController {
   }
 
   @Post('forgot-password')
-  @ApiOperation({ summary: 'Request a password reset email' })
-  forgotPassword(@Body() body: { email: string }) {
-    return this.authService.forgotPassword(body.email);
+  @ApiOperation({
+    summary:
+      'Request a password reset email (email delivery not yet implemented)',
+  })
+  forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(dto.email);
   }
 
   @Post('reset-password')
-  @ApiOperation({ summary: 'Reset password using token' })
-  resetPassword(@Body() body: { token: string; newPassword: string }) {
-    return this.authService.resetPassword(body.token, body.newPassword);
+  @ApiOperation({
+    summary:
+      'Reset password using token (placeholder until token validation is implemented)',
+  })
+  resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto.token, dto.newPassword);
   }
 
   @Get('me')

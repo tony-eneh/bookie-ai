@@ -1,7 +1,23 @@
-import { PrismaClient } from '../generated/prisma';
+import 'dotenv/config';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { PrismaClient } from '../generated/prisma/client.js';
 import * as bcrypt from 'bcryptjs';
 
-const prisma = new PrismaClient();
+if (!process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL must be set before running the seed script');
+}
+
+const prisma = new PrismaClient({
+  adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
+});
+
+function getBalanceDelta(type: 'INCOME' | 'EXPENSE' | 'TRANSFER', amount: number) {
+  if (type === 'INCOME') {
+    return amount;
+  }
+
+  return -amount;
+}
 
 async function main() {
   console.log('🌱 Seeding BookieAI database...');
@@ -55,7 +71,7 @@ async function main() {
       name: 'Kookmin Bank',
       type: 'BANK',
       currency: 'KRW',
-      currentBalance: 2500000,
+      currentBalance: 0,
       isPrimary: true,
     },
   });
@@ -65,7 +81,7 @@ async function main() {
       name: 'GTBank Nigeria',
       type: 'BANK',
       currency: 'NGN',
-      currentBalance: 850000,
+      currentBalance: 0,
     },
   });
   const cashWallet = await prisma.account.create({
@@ -74,7 +90,7 @@ async function main() {
       name: 'Cash Wallet',
       type: 'CASH',
       currency: 'KRW',
-      currentBalance: 150000,
+      currentBalance: 0,
     },
   });
   console.log('✅ 3 accounts created');
@@ -184,9 +200,52 @@ async function main() {
     { accountId: kookmin.id, type: 'TRANSFER' as const, amount: 100000, currency: 'KRW', description: 'Transfer to cash wallet', categoryName: 'Internal Transfer', occurredAt: daysAgo(14), sourceType: 'MANUAL' as const },
   ];
 
-  const createdTxns: { id: string; description: string | null; needsClarification: boolean }[] = [];
+  const targetEndingBalances = new Map<string, number>([
+    [kookmin.id, 2500000],
+    [gtbank.id, 850000],
+    [cashWallet.id, 150000],
+  ]);
+  const netDeltas = new Map<string, number>([
+    [kookmin.id, 0],
+    [gtbank.id, 0],
+    [cashWallet.id, 0],
+  ]);
+
   for (const txn of txns) {
+    const currentDelta = netDeltas.get(txn.accountId) ?? 0;
+    netDeltas.set(
+      txn.accountId,
+      currentDelta + getBalanceDelta(txn.type, txn.amount),
+    );
+  }
+
+  const openingBalances = new Map<string, number>();
+  for (const [accountId, endingBalance] of targetEndingBalances.entries()) {
+    openingBalances.set(accountId, endingBalance - (netDeltas.get(accountId) ?? 0));
+  }
+
+  await prisma.$transaction(
+    [kookmin.id, gtbank.id, cashWallet.id].map((accountId) =>
+      prisma.account.update({
+        where: { id: accountId },
+        data: { currentBalance: openingBalances.get(accountId) ?? 0 },
+      }),
+    ),
+  );
+
+  const runningBalances = new Map(openingBalances);
+  const sortedTxns = [...txns].sort(
+    (left, right) => left.occurredAt.getTime() - right.occurredAt.getTime(),
+  );
+
+  const createdTxns: { id: string; description: string | null; needsClarification: boolean }[] = [];
+  for (const txn of sortedTxns) {
     const categoryId = txn.categoryName ? categories[txn.categoryName]?.id : undefined;
+    const nextBalance =
+      (runningBalances.get(txn.accountId) ?? 0) +
+      getBalanceDelta(txn.type, txn.amount);
+    runningBalances.set(txn.accountId, nextBalance);
+
     const t = await prisma.transaction.create({
       data: {
         userId: user.id,
@@ -204,11 +263,21 @@ async function main() {
         categoryConfidence: categoryId ? 0.9 : 0.3,
         needsClarification: txn.needsClarification || false,
         clarificationStatus: txn.needsClarification ? 'PENDING' : 'NONE',
+        balanceAfterTransaction: nextBalance,
       },
     });
     createdTxns.push(t);
   }
   console.log(`✅ ${createdTxns.length} transactions created`);
+
+  await prisma.$transaction(
+    [kookmin.id, gtbank.id, cashWallet.id].map((accountId) =>
+      prisma.account.update({
+        where: { id: accountId },
+        data: { currentBalance: runningBalances.get(accountId) ?? 0 },
+      }),
+    ),
+  );
 
   // Create clarifications for ambiguous transactions
   const ambiguousTxns = createdTxns.filter((t) => t.needsClarification);

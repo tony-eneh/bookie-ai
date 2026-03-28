@@ -83,22 +83,52 @@ export class InsightsService {
     );
     const netCashFlow = totalIncome - totalExpenses;
 
-    // Budget progress
-    const budgetProgress = await Promise.all(
-      budgets.map(async (budget) => {
-        const { periodStart, periodEnd } = this.getCurrentPeriod(
-          budget.periodType,
-        );
-        const budgetAmount = Number(budget.amount);
-        const where: Record<string, unknown> = {
-          userId,
-          type: 'EXPENSE',
-          occurredAt: { gte: periodStart, lte: periodEnd },
-        };
-        if (budget.categoryId) where.categoryId = budget.categoryId;
+    const budgetPeriods = budgets.map((budget) => ({
+      budget,
+      ...this.getCurrentPeriod(budget.periodType),
+    }));
 
-        const txs = await this.prisma.transaction.findMany({ where });
-        const spent = txs.reduce((sum, tx) => sum + Number(tx.amount), 0);
+    const earliestBudgetStart = budgetPeriods.reduce<Date | null>((earliest, item) => {
+      if (!earliest || item.periodStart < earliest) {
+        return item.periodStart;
+      }
+
+      return earliest;
+    }, null);
+
+    const latestBudgetEnd = budgetPeriods.reduce<Date | null>((latest, item) => {
+      if (!latest || item.periodEnd > latest) {
+        return item.periodEnd;
+      }
+
+      return latest;
+    }, null);
+
+    const budgetTransactions =
+      earliestBudgetStart && latestBudgetEnd
+        ? await this.prisma.transaction.findMany({
+            where: {
+              userId,
+              type: 'EXPENSE',
+              occurredAt: { gte: earliestBudgetStart, lte: latestBudgetEnd },
+            },
+          })
+        : [];
+
+    // Budget progress
+    const budgetProgress = budgetPeriods.map(({ budget, periodStart, periodEnd }) => {
+        const budgetAmount = Number(budget.amount);
+        const spent = budgetTransactions
+          .filter((tx) => {
+            const isWithinPeriod =
+              tx.occurredAt >= periodStart && tx.occurredAt <= periodEnd;
+            const categoryMatches = budget.categoryId
+              ? tx.categoryId === budget.categoryId
+              : true;
+
+            return isWithinPeriod && categoryMatches;
+          })
+          .reduce((sum, tx) => sum + Number(tx.amount), 0);
 
         return {
           budgetId: budget.id,
@@ -113,8 +143,7 @@ export class InsightsService {
               : 0,
           isOverspent: spent > budgetAmount,
         };
-      }),
-    );
+      });
 
     // Top 5 expense categories
     const categoryMap = new Map<

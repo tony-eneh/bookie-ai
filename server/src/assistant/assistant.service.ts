@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import type { Prisma } from '../../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AiService } from '../ai/ai.service.js';
-import type { InputJsonValue } from '../../generated/prisma/internal/prismaNamespace.js';
 
 @Injectable()
 export class AssistantService {
@@ -91,8 +91,8 @@ export class AssistantService {
     await this.prisma.scenarioSimulation.create({
       data: {
         userId,
-        inputPayload: input as unknown as InputJsonValue,
-        resultPayload: plan as unknown as InputJsonValue,
+        inputPayload: input as unknown as Prisma.InputJsonValue,
+        resultPayload: plan as unknown as Prisma.InputJsonValue,
       },
     });
 
@@ -108,8 +108,8 @@ export class AssistantService {
     await this.prisma.scenarioSimulation.create({
       data: {
         userId,
-        inputPayload: input as unknown as InputJsonValue,
-        resultPayload: result as unknown as InputJsonValue,
+        inputPayload: input as unknown as Prisma.InputJsonValue,
+        resultPayload: result as unknown as Prisma.InputJsonValue,
       },
     });
 

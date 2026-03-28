@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service.js';
 
@@ -42,7 +42,7 @@ export class FxRatesService {
 
     // If still no rate found after fetch, throw
     if (cached) return Number(cached.rate);
-    throw new Error(
+    throw new NotFoundException(
       `Exchange rate not available for ${baseCurrency}/${targetCurrency}`,
     );
   }

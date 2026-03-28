@@ -6,8 +6,33 @@ import { AppModule } from './app.module.js';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const configService = app.get(ConfigService);
 
-  app.enableCors();
+  const corsOrigins = (configService.get<string>('CORS_ORIGINS') ??
+    'http://localhost:3000,http://localhost:5173,http://localhost:8080')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+  const corsCredentials =
+    (configService.get<string>('CORS_CREDENTIALS') ?? 'false').toLowerCase() ===
+    'true';
+
+  app.enableCors({
+    origin: (
+      origin: string | undefined,
+      callback: (error: Error | null, allow?: boolean) => void,
+    ) => {
+      if (!origin || corsOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error('Origin not allowed by CORS'), false);
+    },
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Authorization', 'Content-Type'],
+    credentials: corsCredentials,
+  });
 
   app.useGlobalPipes(
     new ValidationPipe({
@@ -26,7 +51,6 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('api', app, document);
 
-  const configService = app.get(ConfigService);
   const port = configService.get<number>('PORT', 3000);
 
   await app.listen(port);
