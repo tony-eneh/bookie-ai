@@ -6,6 +6,10 @@ import { UsersModule } from './users/users.module.js';
 import { AccountsModule } from './accounts/accounts.module.js';
 import { CategoriesModule } from './categories/categories.module.js';
 import { TransactionsModule } from './transactions/transactions.module.js';
+import { FxRatesModule } from './fx-rates/fx-rates.module.js';
+import { ClarificationsModule } from './clarifications/clarifications.module.js';
+import { BudgetsModule } from './budgets/budgets.module.js';
+import { GoalsModule } from './goals/goals.module.js';
 
 @Module({
   imports: [
@@ -16,6 +20,10 @@ import { TransactionsModule } from './transactions/transactions.module.js';
     AccountsModule,
     CategoriesModule,
     TransactionsModule,
+    FxRatesModule,
+    ClarificationsModule,
+    BudgetsModule,
+    GoalsModule,
   ],
 })
 export class AppModule {}
