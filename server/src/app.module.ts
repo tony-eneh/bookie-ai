@@ -10,11 +10,17 @@ import { FxRatesModule } from './fx-rates/fx-rates.module.js';
 import { ClarificationsModule } from './clarifications/clarifications.module.js';
 import { BudgetsModule } from './budgets/budgets.module.js';
 import { GoalsModule } from './goals/goals.module.js';
+import { AiModule } from './ai/ai.module.js';
+import { IngestionModule } from './ingestion/ingestion.module.js';
+import { InsightsModule } from './insights/insights.module.js';
+import { AssistantModule } from './assistant/assistant.module.js';
+import { NotificationsModule } from './notifications/notifications.module.js';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
+    AiModule,
     AuthModule,
     UsersModule,
     AccountsModule,
@@ -24,6 +30,10 @@ import { GoalsModule } from './goals/goals.module.js';
     ClarificationsModule,
     BudgetsModule,
     GoalsModule,
+    IngestionModule,
+    InsightsModule,
+    AssistantModule,
+    NotificationsModule,
   ],
 })
 export class AppModule {}
