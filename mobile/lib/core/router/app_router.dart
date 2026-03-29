@@ -5,6 +5,7 @@ import 'package:bookie_ai/features/splash/splash_screen.dart';
 import 'package:bookie_ai/features/onboarding/onboarding_screen.dart';
 import 'package:bookie_ai/features/auth/login_screen.dart';
 import 'package:bookie_ai/features/auth/register_screen.dart';
+import 'package:bookie_ai/features/home/dashboard_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return AppRouter.router;
@@ -41,7 +42,7 @@ abstract final class AppRouter {
           GoRoute(
             path: '/',
             pageBuilder: (context, state) => const NoTransitionPage(
-              child: _PlaceholderScreen(title: 'Dashboard'),
+              child: DashboardScreen(),
             ),
           ),
           GoRoute(
