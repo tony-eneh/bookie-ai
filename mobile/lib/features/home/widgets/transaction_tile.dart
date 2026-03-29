@@ -10,6 +10,12 @@ class TransactionTile extends StatelessWidget {
 
   final Transaction transaction;
 
+  String get _displayName =>
+      transaction.merchantName ??
+      transaction.description ??
+      transaction.counterparty ??
+      'Transaction';
+
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
@@ -45,10 +51,7 @@ class TransactionTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    transaction.merchantName ??
-                        transaction.description ??
-                        transaction.counterparty ??
-                        'Transaction',
+                    _displayName,
                     style: textTheme.bodyLarge?.copyWith(
                       color: AppColors.textPrimary,
                       fontWeight: FontWeight.w500,

@@ -83,11 +83,10 @@ class _DashboardContent extends StatelessWidget {
 
         // Balance card
         BalanceCard(
-          totalBalance: data.netCashFlow,
+          totalBalance: data.totalIncome - data.totalExpenses,
           income: data.totalIncome,
           expenses: data.totalExpenses,
           currency: currency,
-          netCashFlow: data.netCashFlow,
         ),
         const SizedBox(height: 24),
 
@@ -204,13 +203,15 @@ class _AppBarRow extends StatelessWidget {
             ],
           ),
         ),
-        _NotificationBell(),
+        const _NotificationBell(),
       ],
     );
   }
 }
 
 class _NotificationBell extends StatelessWidget {
+  const _NotificationBell();
+
   @override
   Widget build(BuildContext context) {
     return IconButton(
@@ -300,7 +301,7 @@ class _ErrorView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
+            const Icon(
               Icons.cloud_off_rounded,
               size: 64,
               color: AppColors.textTertiary,
