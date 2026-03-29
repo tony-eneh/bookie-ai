@@ -60,4 +60,20 @@ class StorageService {
   Future<void> setOnboardingCompleted() async {
     await _prefsBox.put(_onboardingKey, true);
   }
+
+  Future<void> saveOnboardingPreferences({
+    required String currency,
+    required String incomeStyle,
+    required String financialPersonality,
+  }) async {
+    await Future.wait([
+      _prefsBox.put('pref_currency', currency),
+      _prefsBox.put('pref_income_style', incomeStyle),
+      _prefsBox.put('pref_financial_personality', financialPersonality),
+    ]);
+  }
+
+  String? getOnboardingPreference(String key) {
+    return _prefsBox.get('pref_$key') as String?;
+  }
 }

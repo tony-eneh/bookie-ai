@@ -90,6 +90,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   Future<void> _complete() async {
     final storage = ref.read(storageServiceProvider);
+    await storage.saveOnboardingPreferences(
+      currency: _selectedCurrency,
+      incomeStyle: _selectedIncomeStyle,
+      financialPersonality: _selectedPersonality,
+    );
     await storage.setOnboardingCompleted();
     if (!mounted) return;
     context.go('/login');
