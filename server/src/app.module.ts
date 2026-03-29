@@ -14,7 +14,9 @@ import { AiModule } from './ai/ai.module.js';
 import { IngestionModule } from './ingestion/ingestion.module.js';
 import { InsightsModule } from './insights/insights.module.js';
 import { AssistantModule } from './assistant/assistant.module.js';
+import { ConnectedAccountsModule } from './connected-accounts/connected-accounts.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
+import { StatementImportsModule } from './statement-imports/statement-imports.module.js';
 
 @Module({
   imports: [
@@ -33,7 +35,9 @@ import { NotificationsModule } from './notifications/notifications.module.js';
     IngestionModule,
     InsightsModule,
     AssistantModule,
+    ConnectedAccountsModule,
     NotificationsModule,
+    StatementImportsModule,
   ],
 })
 export class AppModule {}

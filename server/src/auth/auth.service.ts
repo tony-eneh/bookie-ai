@@ -1,14 +1,18 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
+  InternalServerErrorException,
   Logger,
-  NotImplementedException,
   UnauthorizedException,
 } from '@nestjs/common';
+import { randomBytes, createHash } from 'node:crypto';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { hash, compare } from 'bcryptjs';
+import { OAuth2Client } from 'google-auth-library';
 import { v4 as uuidv4 } from 'uuid';
+import { EmailQueueService } from '../mail/email-queue.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { UsersService } from '../users/users.service.js';
 import type { GoogleAuthDto } from './dto/google-auth.dto.js';
@@ -17,12 +21,14 @@ import type { RegisterDto } from './dto/register.dto.js';
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
+  private readonly googleClient = new OAuth2Client();
 
   constructor(
     private prisma: PrismaService,
     private usersService: UsersService,
     private jwtService: JwtService,
     private configService: ConfigService,
+    private emailQueueService: EmailQueueService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -116,32 +122,156 @@ export class AuthService {
   async forgotPassword(email: string) {
     const user = await this.usersService.findByEmail(email);
     if (!user) {
-      // Return success even if user not found to prevent email enumeration
       return { message: 'If the email exists, a reset link has been sent' };
     }
 
-    this.logger.warn(
-      `Password reset requested for ${email}, but email delivery is not configured yet`,
+    const expiresInMinutes = this.getPositiveNumberEnv(
+      'RESET_PASSWORD_EXPIRATION_MINUTES',
+      30,
     );
+    const resetToken = randomBytes(32).toString('hex');
+    const tokenHash = this.hashOpaqueToken(resetToken);
+    const appUrl = (this.configService.get<string>('APP_URL') ?? 'http://localhost:3000').replace(/\/$/, '');
+    const resetUrl = `${appUrl}/reset-password?token=${resetToken}`;
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.passwordResetToken.deleteMany({
+        where: { userId: user.id, usedAt: null },
+      });
+
+      await tx.passwordResetToken.create({
+        data: {
+          userId: user.id,
+          tokenHash,
+          expiresAt: new Date(Date.now() + expiresInMinutes * 60 * 1000),
+        },
+      });
+    });
+
+    await this.emailQueueService.enqueuePasswordResetEmail({
+      to: user.email,
+      fullName: user.fullName,
+      resetUrl,
+      expiresInMinutes,
+    });
+
     return { message: 'If the email exists, a reset link has been sent' };
   }
 
-  async resetPassword(_token: string, _newPassword: string) {
-    this.logger.warn(
-      'Password reset attempted before reset-token validation was implemented',
-    );
-    throw new NotImplementedException(
-      'Password reset token validation is not implemented yet.',
-    );
+  async resetPassword(token: string, newPassword: string) {
+    const tokenHash = this.hashOpaqueToken(token);
+    const storedToken = await this.prisma.passwordResetToken.findUnique({
+      where: { tokenHash },
+      include: { user: true },
+    });
+
+    if (!storedToken || storedToken.usedAt || storedToken.expiresAt < new Date()) {
+      throw new BadRequestException('Invalid or expired password reset token');
+    }
+
+    const passwordHash = await hash(newPassword, 12);
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: storedToken.userId },
+        data: { passwordHash },
+      });
+
+      await tx.refreshToken.deleteMany({
+        where: { userId: storedToken.userId },
+      });
+
+      await tx.passwordResetToken.update({
+        where: { id: storedToken.id },
+        data: { usedAt: new Date() },
+      });
+
+      await tx.passwordResetToken.deleteMany({
+        where: {
+          userId: storedToken.userId,
+          id: { not: storedToken.id },
+        },
+      });
+    });
+
+    return { message: 'Password reset successfully' };
   }
 
-  async googleAuth(_dto: GoogleAuthDto) {
-    this.logger.warn(
-      'Google auth requested before ID token verification was implemented',
-    );
-    throw new NotImplementedException(
-      'Google OAuth is not enabled until ID token verification is implemented.',
-    );
+  async googleAuth(dto: GoogleAuthDto) {
+    const allowedClientIds = (this.configService.get<string>('GOOGLE_CLIENT_ID') ?? '')
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean);
+
+    if (allowedClientIds.length === 0) {
+      throw new InternalServerErrorException(
+        'GOOGLE_CLIENT_ID must be configured before Google sign-in can be used',
+      );
+    }
+
+    const ticket = await this.googleClient.verifyIdToken({
+      idToken: dto.idToken,
+      audience: allowedClientIds,
+    });
+    const payload = ticket.getPayload();
+
+    if (!payload?.email || !payload.email_verified) {
+      throw new UnauthorizedException('Google account email is not verified');
+    }
+
+    if (dto.email && dto.email.toLowerCase() !== payload.email.toLowerCase()) {
+      throw new BadRequestException('Provided email does not match the verified Google token');
+    }
+
+    let user = await this.usersService.findByEmail(payload.email);
+
+    if (!user) {
+      user = await this.prisma.$transaction(async (tx) => {
+        const createdUser = await tx.user.create({
+          data: {
+            email: payload.email!,
+            fullName: dto.fullName ?? payload.name ?? 'Google User',
+          },
+        });
+
+        await tx.account.create({
+          data: {
+            userId: createdUser.id,
+            name: 'Main Account',
+            type: 'BANK',
+            currency: createdUser.primaryCurrency,
+            isPrimary: true,
+          },
+        });
+
+        return createdUser;
+      });
+    }
+
+    const connectedAccount = await this.prisma.connectedAccount.findFirst({
+      where: {
+        userId: user.id,
+        providerType: 'google',
+        providerEmail: payload.email,
+      },
+    });
+
+    if (connectedAccount) {
+      await this.prisma.connectedAccount.update({
+        where: { id: connectedAccount.id },
+        data: { status: 'ACTIVE' },
+      });
+    } else {
+      await this.prisma.connectedAccount.create({
+        data: {
+          userId: user.id,
+          providerType: 'google',
+          providerEmail: payload.email,
+        },
+      });
+    }
+
+    return this.login(user.id);
   }
 
   async generateTokens(userId: string, email: string) {
@@ -179,5 +309,20 @@ export class AuthService {
 
     const { passwordHash: _, ...userWithoutPassword } = user;
     return userWithoutPassword;
+  }
+
+  private hashOpaqueToken(token: string) {
+    return createHash('sha256').update(token).digest('hex');
+  }
+
+  private getPositiveNumberEnv(key: string, fallback: number) {
+    const rawValue = this.configService.get<string>(key) ?? fallback.toString();
+    const parsedValue = Number(rawValue);
+
+    if (!Number.isFinite(parsedValue) || parsedValue <= 0) {
+      throw new Error(`${key} must be a positive number`);
+    }
+
+    return parsedValue;
   }
 }
