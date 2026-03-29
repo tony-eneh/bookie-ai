@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:bookie_ai/features/splash/splash_screen.dart';
+import 'package:bookie_ai/features/onboarding/onboarding_screen.dart';
+import 'package:bookie_ai/features/auth/login_screen.dart';
+import 'package:bookie_ai/features/auth/register_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return AppRouter.router;
@@ -16,21 +20,19 @@ abstract final class AppRouter {
     routes: [
       GoRoute(
         path: '/splash',
-        builder: (context, state) => const _PlaceholderScreen(title: 'Splash'),
+        builder: (context, state) => const SplashScreen(),
       ),
       GoRoute(
         path: '/onboarding',
-        builder: (context, state) =>
-            const _PlaceholderScreen(title: 'Onboarding'),
+        builder: (context, state) => const OnboardingScreen(),
       ),
       GoRoute(
         path: '/login',
-        builder: (context, state) => const _PlaceholderScreen(title: 'Login'),
+        builder: (context, state) => const LoginScreen(),
       ),
       GoRoute(
         path: '/register',
-        builder: (context, state) =>
-            const _PlaceholderScreen(title: 'Register'),
+        builder: (context, state) => const RegisterScreen(),
       ),
       ShellRoute(
         navigatorKey: _shellNavigatorKey,
