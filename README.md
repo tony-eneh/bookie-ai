@@ -152,8 +152,10 @@ This is not just a budgeting app — it’s a **financial assistant**.
 
 /mobile        # Flutter app
 /server        # NestJS API
-/docs          # Architecture & specs
-/infra         # Docker & deployment configs
+docker-compose.yml
+SPEC.md
+SPEC_update_1.md
+SPEC_update_2.md
 
 ````
 
@@ -164,7 +166,7 @@ This is not just a budgeting app — it’s a **financial assistant**.
 ### Prerequisites
 
 - Flutter SDK
-- Node.js (>= 18)
+- Node.js (>= 20)
 - Docker
 - PostgreSQL (or Dockerized)
 
@@ -173,11 +175,13 @@ This is not just a budgeting app — it’s a **financial assistant**.
 ## 🧩 Backend Setup
 
 ```bash
+docker compose up -d   # starts postgres + redis from repo root
 cd server
 cp .env.example .env
 npm install
-docker-compose up -d   # starts postgres + redis
+npm run prisma:generate
 npx prisma migrate dev
+npx prisma db seed
 npm run start:dev
 ````
 
@@ -207,8 +211,17 @@ DATABASE_URL=postgresql://user:password@localhost:5432/bookieai
 JWT_SECRET=your_secret
 REDIS_URL=redis://localhost:6379
 OPENAI_API_KEY=your_key
+APP_URL=http://localhost:3000
+GOOGLE_CLIENT_ID=your_google_client_id
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_USER=your_smtp_user
+SMTP_PASS=your_smtp_password
+SMTP_FROM=BookieAI <no-reply@bookieai.com>
 
 ```
+
+For the full backend environment reference, see `server/.env.example` and `server/README.md`.
 
 ---
 

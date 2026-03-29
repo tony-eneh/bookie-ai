@@ -56,7 +56,7 @@ Notes:
 ```bash
 npm install
 docker compose up -d
-npx prisma generate
+npm run prisma:generate
 npx prisma migrate dev
 npx prisma db seed
 npm run start:dev
@@ -69,6 +69,7 @@ The API listens on `http://localhost:3000` by default.
 ```bash
 npm run build
 npm run lint
+npm run prisma:generate
 npm run test
 npm run test:e2e
 npm run start:dev
@@ -132,6 +133,8 @@ Do not enable these flows in production until SMTP credentials and the correct G
 ## Testing Notes
 
 Jest is configured with NodeNext-friendly `.js` import mapping so unit and e2e tests can resolve TypeScript source imports consistently.
+
+Use `npm run prisma:generate` instead of `npx prisma generate`. The wrapper reapplies the generated Prisma client compatibility patch required for the Nest build and watch flow.
 
 ## Production Notes
 
