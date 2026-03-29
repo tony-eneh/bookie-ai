@@ -281,7 +281,7 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen>
         bottom: MediaQuery.of(context).padding.bottom + 8,
       ),
       decoration: BoxDecoration(
-        color: AppColors.background,
+        color: AppColors.primary,
         border: Border(
           top: BorderSide(
             color: AppColors.surface,

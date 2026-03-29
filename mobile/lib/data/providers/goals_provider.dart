@@ -77,6 +77,11 @@ class GoalsNotifier extends StateNotifier<AsyncValue<List<Goal>>> {
     });
   }
 
+  Future<Goal> getGoal(String id) async {
+    final response = await _api.get(ApiConstants.goal(id));
+    return Goal.fromJson(response.data['data'] as Map<String, dynamic>);
+  }
+
   Future<GoalProjection> getProjection(String goalId) async {
     final response = await _api.get(ApiConstants.goalProjection(goalId));
     return GoalProjection.fromJson(

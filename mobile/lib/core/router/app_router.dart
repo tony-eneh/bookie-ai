@@ -10,6 +10,11 @@ import 'package:bookie_ai/features/accounts/accounts_screen.dart';
 import 'package:bookie_ai/features/accounts/account_detail_screen.dart';
 import 'package:bookie_ai/features/transactions/transactions_screen.dart';
 import 'package:bookie_ai/features/transactions/transaction_detail_screen.dart';
+import 'package:bookie_ai/features/assistant/assistant_screen.dart';
+import 'package:bookie_ai/features/budgets/budgets_screen.dart';
+import 'package:bookie_ai/features/goals/goals_screen.dart';
+import 'package:bookie_ai/features/goals/goal_detail_screen.dart';
+import 'package:bookie_ai/features/settings/settings_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return AppRouter.router;
@@ -58,19 +63,19 @@ abstract final class AppRouter {
           GoRoute(
             path: '/assistant',
             pageBuilder: (context, state) => const NoTransitionPage(
-              child: _PlaceholderScreen(title: 'Assistant'),
+              child: AssistantScreen(),
             ),
           ),
           GoRoute(
             path: '/budgets',
             pageBuilder: (context, state) => const NoTransitionPage(
-              child: _PlaceholderScreen(title: 'Budgets'),
+              child: BudgetsScreen(),
             ),
           ),
           GoRoute(
             path: '/settings',
             pageBuilder: (context, state) => const NoTransitionPage(
-              child: _PlaceholderScreen(title: 'Settings'),
+              child: SettingsScreen(),
             ),
           ),
         ],
@@ -93,39 +98,16 @@ abstract final class AppRouter {
       ),
       GoRoute(
         path: '/goals',
-        builder: (context, state) => const _PlaceholderScreen(title: 'Goals'),
+        builder: (context, state) => const GoalsScreen(),
       ),
       GoRoute(
         path: '/goals/:id',
-        builder: (context, state) => _PlaceholderScreen(
-          title: 'Goal ${state.pathParameters['id']}',
-        ),
-      ),
-      GoRoute(
-        path: '/budgets/:id',
-        builder: (context, state) => _PlaceholderScreen(
-          title: 'Budget ${state.pathParameters['id']}',
+        builder: (context, state) => GoalDetailScreen(
+          goalId: state.pathParameters['id']!,
         ),
       ),
     ],
     redirect: (context, state) {
-      // TODO: Replace with actual auth/onboarding state checks
-      // final isAuthenticated = ref.read(authProvider).isAuthenticated;
-      // final isOnboarded = ref.read(onboardingProvider).isComplete;
-      // final isAuthRoute = state.matchedLocation == '/login' ||
-      //     state.matchedLocation == '/register';
-      //
-      // if (!isAuthenticated && !isAuthRoute &&
-      //     state.matchedLocation != '/splash') {
-      //   return '/login';
-      // }
-      // if (isAuthenticated && !isOnboarded &&
-      //     state.matchedLocation != '/onboarding') {
-      //   return '/onboarding';
-      // }
-      // if (isAuthenticated && isAuthRoute) {
-      //   return '/';
-      // }
       return null;
     },
   );
@@ -200,21 +182,4 @@ class _AppShell extends StatelessWidget {
   }
 }
 
-class _PlaceholderScreen extends StatelessWidget {
-  const _PlaceholderScreen({required this.title});
 
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(title)),
-      body: Center(
-        child: Text(
-          title,
-          style: Theme.of(context).textTheme.headlineMedium,
-        ),
-      ),
-    );
-  }
-}

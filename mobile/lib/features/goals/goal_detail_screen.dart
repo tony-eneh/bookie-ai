@@ -145,14 +145,14 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
       runSpacing: 12,
       children: [
         _statCard('Target',
-            CurrencyFormatter.format(goal.targetAmount, goal.targetCurrency)),
+            CurrencyFormatter.format(goal.targetAmount, currency: goal.targetCurrency)),
         _statCard('Saved',
-            CurrencyFormatter.format(goal.currentAmount, goal.targetCurrency)),
+            CurrencyFormatter.format(goal.currentAmount, currency: goal.targetCurrency)),
         if (goal.monthlyRequired != null)
           _statCard(
               'Monthly Needed',
               CurrencyFormatter.format(
-                  goal.monthlyRequired!, goal.targetCurrency)),
+                  goal.monthlyRequired!, currency: goal.targetCurrency)),
         if (goal.targetDate != null)
           _statCard('Target Date', DateFormatter.fullDate(goal.targetDate!)),
       ],
@@ -266,7 +266,7 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
                 labelText: 'Amount (${goal.targetCurrency})',
                 labelStyle: TextStyle(color: AppColors.textSecondary),
                 filled: true,
-                fillColor: AppColors.background,
+                fillColor: AppColors.primary,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
@@ -284,8 +284,11 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
                   Navigator.pop(ctx);
                   await ref.read(goalsProvider.notifier).addContribution(
                         goal.id,
-                        amount,
-                        goal.targetCurrency,
+                        {
+                          'amount': amount,
+                          'currency': goal.targetCurrency,
+                          'contributionDate': DateTime.now().toIso8601String(),
+                        },
                       );
                   _loadGoal();
                 },
@@ -329,7 +332,7 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
                       style: TextStyle(
                           color: AppColors.textSecondary, fontSize: 13)),
                   Text(
-                    CurrencyFormatter.format(c.amount, c.currency),
+                    CurrencyFormatter.format(c.amount, currency: c.currency),
                     style: TextStyle(
                       color: AppColors.accent,
                       fontWeight: FontWeight.w600,
