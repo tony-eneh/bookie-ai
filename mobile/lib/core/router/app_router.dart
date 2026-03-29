@@ -6,6 +6,10 @@ import 'package:bookie_ai/features/onboarding/onboarding_screen.dart';
 import 'package:bookie_ai/features/auth/login_screen.dart';
 import 'package:bookie_ai/features/auth/register_screen.dart';
 import 'package:bookie_ai/features/home/dashboard_screen.dart';
+import 'package:bookie_ai/features/accounts/accounts_screen.dart';
+import 'package:bookie_ai/features/accounts/account_detail_screen.dart';
+import 'package:bookie_ai/features/transactions/transactions_screen.dart';
+import 'package:bookie_ai/features/transactions/transaction_detail_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return AppRouter.router;
@@ -48,7 +52,7 @@ abstract final class AppRouter {
           GoRoute(
             path: '/accounts',
             pageBuilder: (context, state) => const NoTransitionPage(
-              child: _PlaceholderScreen(title: 'Accounts'),
+              child: AccountsScreen(),
             ),
           ),
           GoRoute(
@@ -73,19 +77,18 @@ abstract final class AppRouter {
       ),
       GoRoute(
         path: '/accounts/:id',
-        builder: (context, state) => _PlaceholderScreen(
-          title: 'Account ${state.pathParameters['id']}',
+        builder: (context, state) => AccountDetailScreen(
+          accountId: state.pathParameters['id']!,
         ),
       ),
       GoRoute(
         path: '/transactions',
-        builder: (context, state) =>
-            const _PlaceholderScreen(title: 'Transactions'),
+        builder: (context, state) => const TransactionsScreen(),
       ),
       GoRoute(
         path: '/transactions/:id',
-        builder: (context, state) => _PlaceholderScreen(
-          title: 'Transaction ${state.pathParameters['id']}',
+        builder: (context, state) => TransactionDetailScreen(
+          transactionId: state.pathParameters['id']!,
         ),
       ),
       GoRoute(
