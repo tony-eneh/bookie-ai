@@ -1,18 +1,49 @@
-# bookie_ai
+# bookie_ai mobile
 
-A new Flutter project.
+## Environment configuration
 
-## Getting Started
+This app loads a local `assets/env/.env` file when present.
 
-This project is a starting point for a Flutter application.
+Tracked example:
 
-A few resources to get you started if this is your first Flutter project:
+- `assets/env/.env.example`
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+Ignored local file:
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
-opkk
+- `assets/env/.env`
+
+Example contents:
+
+```env
+API_BASE_URL=http://localhost:3000/api
+API_BASE_URL_ANDROID=http://10.0.2.2:3000/api
+```
+
+Resolution order:
+
+1. `--dart-define=API_BASE_URL=...`
+2. `--dart-define=API_BASE_URL_ANDROID=...` on Android only
+3. values from `assets/env/.env`
+4. built-in defaults
+
+## Setup
+
+Create your local env file from the example:
+
+```bash
+cp assets/env/.env.example assets/env/.env
+```
+
+## Run examples
+
+Web server:
+
+```bash
+flutter run -d web-server
+```
+
+Android emulator:
+
+```bash
+flutter run
+```
