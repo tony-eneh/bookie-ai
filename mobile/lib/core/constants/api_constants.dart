@@ -1,7 +1,12 @@
+import 'package:flutter/foundation.dart';
+
 abstract final class ApiConstants {
+  static const String _webBaseUrl = 'http://localhost:3000/api';
+  static const String _mobileBaseUrl = 'http://10.0.2.2:3000/api';
+
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://10.0.2.2:3000/api',
+    defaultValue: kIsWeb ? _webBaseUrl : _mobileBaseUrl,
   );
 
   // Auth
