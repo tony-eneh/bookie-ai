@@ -15,6 +15,10 @@ abstract final class ApiConstants {
       return genericOverride;
     }
 
+    if (kIsWeb) {
+      return dotenv.env['API_BASE_URL'] ?? _webBaseUrl;
+    }
+
     if (defaultTargetPlatform == TargetPlatform.android) {
       const androidOverride = String.fromEnvironment(
         'API_BASE_URL_ANDROID',
