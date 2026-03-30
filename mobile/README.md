@@ -1,18 +1,37 @@
-# bookie_ai
+# bookie_ai mobile
 
-A new Flutter project.
+## Environment configuration
 
-## Getting Started
+This app now loads API configuration from `assets/env/.env` via `flutter_dotenv`.
 
-This project is a starting point for a Flutter application.
+Default values:
 
-A few resources to get you started if this is your first Flutter project:
+- `API_BASE_URL=http://localhost:3000/api`
+- `API_BASE_URL_ANDROID=http://10.0.2.2:3000/api`
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+Resolution order:
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
-opkk
+1. `--dart-define=API_BASE_URL=...`
+2. `--dart-define=API_BASE_URL_ANDROID=...` on Android only
+3. Values from `assets/env/.env`
+4. Built-in defaults
+
+## Run examples
+
+Web server:
+
+```bash
+flutter run -d web-server
+```
+
+Web server with explicit override:
+
+```bash
+flutter run -d web-server --dart-define=API_BASE_URL=http://localhost:3000/api
+```
+
+Android emulator:
+
+```bash
+flutter run --dart-define=API_BASE_URL_ANDROID=http://10.0.2.2:3000/api
+```
