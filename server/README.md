@@ -64,6 +64,12 @@ npm run start:dev
 
 The API listens on `http://localhost:3000` by default.
 
+The API base URL is:
+
+```text
+http://localhost:3000/api
+```
+
 ## Useful Commands
 
 ```bash
@@ -94,10 +100,16 @@ Demo credentials:
 
 ## API Surface
 
-Swagger is available at:
+Swagger UI is available at:
 
 ```text
-http://localhost:3000/api
+http://localhost:3000/api/docs
+```
+
+OpenAPI JSON is available at:
+
+```text
+http://localhost:3000/api/docs-json
 ```
 
 Implemented modules include:

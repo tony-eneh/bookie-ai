@@ -7,6 +7,7 @@ import { AppModule } from './app.module.js';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
+  const apiPrefix = 'api';
 
   const corsOrigins = (configService.get<string>('CORS_ORIGINS') ??
     'http://localhost:3000,http://localhost:5173,http://localhost:8080')
@@ -41,6 +42,8 @@ async function bootstrap() {
     }),
   );
 
+  app.setGlobalPrefix(apiPrefix);
+
   const swaggerConfig = new DocumentBuilder()
     .setTitle('BookieAI API')
     .setDescription('Voice-first AI-powered personal finance API')
@@ -49,7 +52,7 @@ async function bootstrap() {
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('api', app, document);
+  SwaggerModule.setup(`${apiPrefix}/docs`, app, document);
 
   const port = configService.get<number>('PORT', 3000);
 
