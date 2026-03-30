@@ -1,37 +1,13 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 abstract final class ApiConstants {
-  static const String _localhostBaseUrl = 'http://localhost:3000/api';
-  static const String _androidEmulatorBaseUrl = 'http://10.0.2.2:3000/api';
+  static const String _webBaseUrl = 'http://localhost:3000/api';
+  static const String _mobileBaseUrl = 'http://10.0.2.2:3000/api';
 
-  static String get baseUrl {
-    const genericOverride = String.fromEnvironment(
-      'API_BASE_URL',
-      defaultValue: '',
-    );
-
-    if (genericOverride.isNotEmpty) {
-      return genericOverride;
-    }
-
-    if (defaultTargetPlatform == TargetPlatform.android) {
-      const androidOverride = String.fromEnvironment(
-        'API_BASE_URL_ANDROID',
-        defaultValue: '',
-      );
-
-      if (androidOverride.isNotEmpty) {
-        return androidOverride;
-      }
-
-      return dotenv.env['API_BASE_URL_ANDROID'] ??
-          dotenv.env['API_BASE_URL'] ??
-          _androidEmulatorBaseUrl;
-    }
-
-    return dotenv.env['API_BASE_URL'] ?? _localhostBaseUrl;
-  }
+  static const String baseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: kIsWeb ? _webBaseUrl : _mobileBaseUrl,
+  );
 
   // Auth
   static const String register = '/auth/register';
