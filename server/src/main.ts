@@ -3,6 +3,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module.js';
+import { ResponseTransformInterceptor } from './common/interceptors/response-transform.interceptor.js';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -34,12 +35,16 @@ async function bootstrap() {
     credentials: corsCredentials,
   });
 
+  app.setGlobalPrefix('api');
+
   app.useGlobalPipes(
     new ValidationPipe({
       transform: true,
       whitelist: true,
     }),
   );
+
+  app.useGlobalInterceptors(new ResponseTransformInterceptor());
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('BookieAI API')
