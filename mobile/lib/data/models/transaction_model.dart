@@ -1,3 +1,4 @@
+import 'package:bookie_ai/core/utils/json_parsers.dart';
 import 'package:bookie_ai/data/models/account_model.dart';
 import 'package:bookie_ai/data/models/category_model.dart';
 
@@ -50,7 +51,7 @@ class Transaction {
     return Transaction(
       id: json['id'] as String,
       type: json['type'] as String,
-      amount: (json['amount'] as num).toDouble(),
+      amount: parseDouble(json['amount']),
       currency: json['currency'] as String,
       occurredAt: DateTime.parse(json['occurredAt'] as String),
       description: json['description'] as String?,
@@ -63,16 +64,15 @@ class Transaction {
       subcategory: json['subcategory'] as String?,
       sourceType: json['sourceType'] as String,
       note: json['note'] as String?,
-      parseConfidence:
-          (json['parseConfidence'] as num?)?.toDouble() ?? 1.0,
+      parseConfidence: parseDouble(json['parseConfidence'], fallback: 1.0),
       categoryConfidence:
-          (json['categoryConfidence'] as num?)?.toDouble() ?? 1.0,
+          parseDouble(json['categoryConfidence'], fallback: 1.0),
       accountId: json['accountId'] as String?,
       account: json['account'] != null
           ? Account.fromJson(json['account'] as Map<String, dynamic>)
           : null,
-      convertedAmount: (json['convertedAmount'] as num?)?.toDouble(),
-      fxRateUsed: (json['fxRateUsed'] as num?)?.toDouble(),
+      convertedAmount: parseNullableDouble(json['convertedAmount']),
+      fxRateUsed: parseNullableDouble(json['fxRateUsed']),
       createdAt: DateTime.parse(json['createdAt'] as String),
     );
   }

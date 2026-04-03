@@ -1,3 +1,5 @@
+import 'package:bookie_ai/core/utils/json_parsers.dart';
+
 class Goal {
   final String id;
   final String title;
@@ -32,14 +34,14 @@ class Goal {
       id: json['id'] as String,
       title: json['title'] as String,
       description: json['description'] as String?,
-      targetAmount: (json['targetAmount'] as num).toDouble(),
+      targetAmount: parseDouble(json['targetAmount']),
       targetCurrency: json['targetCurrency'] as String? ?? 'USD',
-      currentAmount: (json['currentAmount'] as num?)?.toDouble() ?? 0.0,
+      currentAmount: parseDouble(json['currentAmount']),
       targetDate: DateTime.parse(json['targetDate'] as String),
       priority: json['priority'] as String? ?? 'MEDIUM',
       status: json['status'] as String? ?? 'ON_TRACK',
       monthlyRequired:
-          (json['monthlyRequiredAmount'] as num?)?.toDouble(),
+          parseNullableDouble(json['monthlyRequiredAmount']),
       createdAt: DateTime.parse(json['createdAt'] as String),
       contributions: (json['contributions'] as List<dynamic>?)
           ?.map((e) =>
@@ -127,12 +129,12 @@ class GoalContribution {
   factory GoalContribution.fromJson(Map<String, dynamic> json) {
     return GoalContribution(
       id: json['id'] as String,
-      amount: (json['amount'] as num).toDouble(),
+      amount: parseDouble(json['amount']),
       currency: json['currency'] as String,
       contributionDate:
           DateTime.parse(json['contributionDate'] as String),
       sourceType: json['sourceType'] as String?,
-      convertedAmount: (json['convertedAmount'] as num?)?.toDouble(),
+      convertedAmount: parseNullableDouble(json['convertedAmount']),
     );
   }
 
@@ -179,16 +181,16 @@ class GoalProjection {
 
   factory GoalProjection.fromJson(Map<String, dynamic> json) {
     return GoalProjection(
-      monthsRemaining: (json['monthsRemaining'] as num).toDouble(),
+      monthsRemaining: parseDouble(json['monthsRemaining']),
       currentMonthlyPace:
-          (json['currentMonthlyPace'] as num).toDouble(),
+          parseDouble(json['currentMonthlyPace']),
       requiredMonthlyAmount:
-          (json['requiredMonthlyAmount'] as num).toDouble(),
+          parseDouble(json['requiredMonthlyAmount']),
       projectedCompletionDate: json['projectedCompletionDate'] != null
           ? DateTime.parse(json['projectedCompletionDate'] as String)
           : null,
       requiredMonthlyIncome:
-          (json['requiredMonthlyIncome'] as num?)?.toDouble(),
+          parseNullableDouble(json['requiredMonthlyIncome']),
       coaching: json['coaching'] as String,
     );
   }

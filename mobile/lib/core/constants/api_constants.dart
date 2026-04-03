@@ -1,7 +1,9 @@
 abstract final class ApiConstants {
+  static const String defaultBaseUrl = 'http://10.0.2.2:3000/api';
+
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://10.0.2.2:3000/api',
+    defaultValue: defaultBaseUrl,
   );
 
   // Auth
@@ -25,7 +27,7 @@ abstract final class ApiConstants {
   // Budgets
   static const String budgets = '/budgets';
   static String budget(String id) => '/budgets/$id';
-  static String budgetProgress(String id) => '/budgets/$id/progress';
+  static String budgetProgress(String id) => '/budgets/$id';
 
   // Goals
   static const String goals = '/goals';
@@ -69,10 +71,10 @@ abstract final class ApiConstants {
   static const String fxSimulation = '/assistant/fx-simulation';
 
   // FX Rates
-  static const String fxConvert = '/fx-rates/convert';
-  static const String fxLatest = '/fx-rates/latest';
+  static const String fxConvert = '/fx/convert';
+  static const String fxLatest = '/fx/rates';
 
   // Users
   static const String userProfile = '/users/me';
-  static const String userPreferences = '/users/me/preferences';
+  static const String userPreferences = '/users/preferences';
 }

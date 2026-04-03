@@ -1,3 +1,14 @@
+Map<String, dynamic> _unwrapResponse(Map<String, dynamic> json) {
+  if (json['data'] is Map<String, dynamic>) {
+    final nested = json['data'] as Map<String, dynamic>;
+    if (nested.containsKey('data') || nested.containsKey('meta')) {
+      return nested;
+    }
+  }
+
+  return json;
+}
+
 class ApiResponse<T> {
   final bool success;
   final T? data;
@@ -15,13 +26,15 @@ class ApiResponse<T> {
     Map<String, dynamic> json,
     T Function(Object? json)? fromJsonT,
   ) {
+    final payload = _unwrapResponse(json);
+
     return ApiResponse(
       success: json['success'] as bool? ?? true,
-      data: json['data'] != null && fromJsonT != null
-          ? fromJsonT(json['data'])
-          : json['data'] as T?,
-      message: json['message'] as String?,
-      error: json['error'] as String?,
+      data: payload['data'] != null && fromJsonT != null
+          ? fromJsonT(payload['data'])
+          : payload['data'] as T?,
+      message: json['message'] as String? ?? payload['message'] as String?,
+      error: json['error'] as String? ?? payload['error'] as String?,
     );
   }
 
@@ -60,13 +73,22 @@ class PaginatedResponse<T> {
     Map<String, dynamic> json,
     T Function(Map<String, dynamic> json) fromJsonT,
   ) {
+    final payload = _unwrapResponse(json);
+    final meta = payload['meta'] as Map<String, dynamic>?;
+
     return PaginatedResponse(
-      data: (json['data'] as List<dynamic>)
+      data: ((payload['data'] as List<dynamic>?) ?? const [])
           .map((e) => fromJsonT(e as Map<String, dynamic>))
           .toList(),
-      total: json['total'] as int? ?? 0,
-      page: json['page'] as int? ?? 1,
-      limit: json['limit'] as int? ?? 20,
+      total: (meta?['total'] as num?)?.toInt() ??
+          (payload['total'] as num?)?.toInt() ??
+          0,
+      page: (meta?['page'] as num?)?.toInt() ??
+          (payload['page'] as num?)?.toInt() ??
+          1,
+      limit: (meta?['limit'] as num?)?.toInt() ??
+          (payload['limit'] as num?)?.toInt() ??
+          20,
     );
   }
 

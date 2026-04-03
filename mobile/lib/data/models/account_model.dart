@@ -1,3 +1,5 @@
+import 'package:bookie_ai/core/utils/json_parsers.dart';
+
 class Account {
   final String id;
   final String name;
@@ -33,15 +35,15 @@ class Account {
       name: json['name'] as String,
       type: json['type'] as String,
       currency: json['currency'] as String? ?? 'USD',
-      currentBalance: (json['currentBalance'] as num?)?.toDouble() ?? 0.0,
+      currentBalance: parseDouble(json['currentBalance']),
       lastReconciledBalance:
-          (json['lastReconciledBalance'] as num?)?.toDouble(),
+          parseNullableDouble(json['lastReconciledBalance']),
       lastReconciledAt: json['lastReconciledAt'] != null
           ? DateTime.parse(json['lastReconciledAt'] as String)
           : null,
       isPrimary: json['isPrimary'] as bool? ?? false,
       isActive: json['isActive'] as bool? ?? true,
-      convertedBalance: (json['convertedBalance'] as num?)?.toDouble(),
+      convertedBalance: parseNullableDouble(json['convertedBalance']),
       confidence: json['confidence'] as String?,
       createdAt: DateTime.parse(json['createdAt'] as String),
     );
