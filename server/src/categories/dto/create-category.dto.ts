@@ -1,6 +1,6 @@
 import { IsString, IsEnum, IsOptional } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { TransactionType } from '../../../generated/prisma/client.js';
+import { TransactionType } from '@prisma/client';
 
 export class CreateCategoryDto {
   @ApiProperty({ example: 'Food & Dining' })

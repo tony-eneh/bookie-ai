@@ -8,7 +8,7 @@ import {
   Min,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { TransactionType } from '../../../generated/prisma/client.js';
+import { TransactionType } from '@prisma/client';
 
 export class ManualEntryDto {
   @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440000' })

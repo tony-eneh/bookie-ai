@@ -8,7 +8,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { hash, compare } from 'bcryptjs';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { UsersService } from '../users/users.service.js';
 import type { GoogleAuthDto } from './dto/google-auth.dto.js';
@@ -149,7 +149,7 @@ export class AuthService {
 
     const accessToken = this.jwtService.sign(payload);
 
-    const refreshToken = uuidv4();
+    const refreshToken = randomUUID();
     const refreshExpirationDays = Number(
       this.configService.get<string>('JWT_REFRESH_EXPIRATION_DAYS') ?? '7',
     );

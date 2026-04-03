@@ -3,7 +3,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateGoalDto } from './dto/create-goal.dto.js';
 import { UpdateGoalDto } from './dto/update-goal.dto.js';
 import { CreateContributionDto } from './dto/create-contribution.dto.js';
-import type { GoalStatus } from '../../generated/prisma/client.js';
+import type { GoalStatus } from '@prisma/client';
 
 @Injectable()
 export class GoalsService {

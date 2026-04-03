@@ -11,7 +11,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   TransactionType,
   SourceType,
-} from '../../../generated/prisma/client.js';
+} from '@prisma/client';
 
 export class CreateTransactionDto {
   @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440000' })

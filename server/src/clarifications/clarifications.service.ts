@@ -1,8 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma } from '../../generated/prisma/client.js';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { RespondClarificationDto } from './dto/respond-clarification.dto.js';
-import type { ClarificationItemStatus } from '../../generated/prisma/client.js';
+import type { ClarificationItemStatus } from '@prisma/client';
 
 @Injectable()
 export class ClarificationsService {

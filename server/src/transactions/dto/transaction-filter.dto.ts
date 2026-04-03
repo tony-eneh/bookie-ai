@@ -11,7 +11,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { TransactionType, SourceType } from '../../../generated/prisma/client.js';
+import { TransactionType, SourceType } from '@prisma/client';
 
 export class TransactionFilterDto {
   @ApiPropertyOptional({ default: 1, minimum: 1 })

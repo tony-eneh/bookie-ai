@@ -18,7 +18,7 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard.js';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 import { ClarificationsService } from './clarifications.service.js';
 import { RespondClarificationDto } from './dto/respond-clarification.dto.js';
-import type { ClarificationItemStatus } from '../../generated/prisma/client.js';
+import type { ClarificationItemStatus } from '@prisma/client';
 
 @ApiTags('clarifications')
 @ApiBearerAuth()

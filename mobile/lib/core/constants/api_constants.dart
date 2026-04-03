@@ -1,5 +1,6 @@
 abstract final class ApiConstants {
-  static const String defaultBaseUrl = 'http://10.0.2.2:3000/api';
+  static const String defaultBaseUrl =
+      'https://server-snowy-nine-48.vercel.app/api';
 
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',

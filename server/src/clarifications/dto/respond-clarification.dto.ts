@@ -3,7 +3,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   AnswerSource,
   TransactionType,
-} from '../../../generated/prisma/client.js';
+} from '@prisma/client';
 
 export class RespondClarificationDto {
   @ApiProperty({ example: 'This was for groceries' })
