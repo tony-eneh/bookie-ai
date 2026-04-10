@@ -152,13 +152,11 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
               ),
             ),
             const SizedBox(height: 24),
-
             _TypeToggle(
               selected: _type,
               onChanged: (v) => setState(() => _type = v),
             ),
             const SizedBox(height: 24),
-
             Center(
               child: SizedBox(
                 width: 200,
@@ -205,7 +203,6 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
               ),
             ),
             const SizedBox(height: 20),
-
             TextFormField(
               controller: _descriptionController,
               style: const TextStyle(color: AppColors.textPrimary),
@@ -216,7 +213,6 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
               textCapitalization: TextCapitalization.sentences,
             ),
             const SizedBox(height: 20),
-
             Text(
               'Category',
               style: textTheme.titleSmall?.copyWith(
@@ -244,24 +240,21 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
                 return _CategoryGrid(
                   categories: filtered,
                   selectedId: _selectedCategoryId,
-                  onSelected: (id) =>
-                      setState(() => _selectedCategoryId = id),
+                  onSelected: (id) => setState(() => _selectedCategoryId = id),
                 );
               },
             ),
             const SizedBox(height: 20),
-
             accountsAsync.when(
               loading: () => const SizedBox.shrink(),
               error: (_, __) => const SizedBox.shrink(),
               data: (accounts) {
                 if (accounts.isEmpty) return const SizedBox.shrink();
-                _selectedAccountId ??= accounts
-                    .where((a) => a.isPrimary)
-                    .firstOrNull
-                    ?.id ?? accounts.first.id;
+                _selectedAccountId ??=
+                    accounts.where((a) => a.isPrimary).firstOrNull?.id ??
+                        accounts.first.id;
                 return DropdownButtonFormField<String>(
-                  value: _selectedAccountId,
+                  initialValue: _selectedAccountId,
                   decoration: const InputDecoration(labelText: 'Account'),
                   dropdownColor: AppColors.surface,
                   style: const TextStyle(color: AppColors.textPrimary),
@@ -278,15 +271,14 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
               },
             ),
             const SizedBox(height: 20),
-
             InkWell(
               onTap: _pickDate,
               borderRadius: BorderRadius.circular(12),
               child: InputDecorator(
                 decoration: const InputDecoration(
                   labelText: 'Date',
-                  suffixIcon:
-                      Icon(Icons.calendar_today, color: AppColors.textSecondary),
+                  suffixIcon: Icon(Icons.calendar_today,
+                      color: AppColors.textSecondary),
                 ),
                 child: Text(
                   DateFormat('MMM d, y').format(_selectedDate),
@@ -295,7 +287,6 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
               ),
             ),
             const SizedBox(height: 12),
-
             GestureDetector(
               onTap: () => setState(() => _showNotes = !_showNotes),
               child: Row(
@@ -328,7 +319,6 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
               ),
             ],
             const SizedBox(height: 24),
-
             SizedBox(
               width: double.infinity,
               height: 52,
@@ -422,7 +412,8 @@ class _ToggleItem extends StatelessWidget {
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            color: isSelected ? color.withValues(alpha: 0.15) : Colors.transparent,
+            color:
+                isSelected ? color.withValues(alpha: 0.15) : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
           ),
           alignment: Alignment.center,
@@ -489,7 +480,8 @@ class _CategoryGrid extends StatelessWidget {
                 Text(
                   cat.name,
                   style: TextStyle(
-                    color: selected ? AppColors.accent : AppColors.textSecondary,
+                    color:
+                        selected ? AppColors.accent : AppColors.textSecondary,
                     fontSize: 13,
                     fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
                   ),

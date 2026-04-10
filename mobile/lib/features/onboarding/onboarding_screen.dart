@@ -291,14 +291,14 @@ class _PreferencesPage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 32),
-          _SectionLabel('Primary Currency'),
+          const _SectionLabel('Primary Currency'),
           const SizedBox(height: 8),
           _CurrencySelector(
             selected: selectedCurrency,
             onChanged: onCurrencyChanged,
           ),
           const SizedBox(height: 24),
-          _SectionLabel('Income Style'),
+          const _SectionLabel('Income Style'),
           const SizedBox(height: 8),
           ..._incomeStyles.entries.map(
             (e) => _ChoiceTile(
@@ -308,7 +308,7 @@ class _PreferencesPage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 24),
-          _SectionLabel('Financial Personality'),
+          const _SectionLabel('Financial Personality'),
           const SizedBox(height: 8),
           ..._personalities.entries.map(
             (e) => _ChoiceTile(
@@ -368,8 +368,7 @@ class _CurrencySelector extends StatelessWidget {
               color: isSelected ? AppColors.accent : AppColors.surface,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color:
-                    isSelected ? AppColors.accent : AppColors.surfaceBorder,
+                color: isSelected ? AppColors.accent : AppColors.surfaceBorder,
               ),
             ),
             child: Text(
@@ -377,8 +376,7 @@ class _CurrencySelector extends StatelessWidget {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                color:
-                    isSelected ? AppColors.primary : AppColors.textSecondary,
+                color: isSelected ? AppColors.primary : AppColors.textSecondary,
               ),
             ),
           ),
@@ -419,9 +417,7 @@ class _ChoiceTile extends StatelessWidget {
           child: Row(
             children: [
               Icon(
-                selected
-                    ? Icons.radio_button_checked
-                    : Icons.radio_button_off,
+                selected ? Icons.radio_button_checked : Icons.radio_button_off,
                 size: 20,
                 color: selected ? AppColors.accent : AppColors.textTertiary,
               ),
@@ -431,8 +427,9 @@ class _ChoiceTile extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                  color:
-                      selected ? AppColors.textPrimary : AppColors.textSecondary,
+                  color: selected
+                      ? AppColors.textPrimary
+                      : AppColors.textSecondary,
                 ),
               ),
             ],

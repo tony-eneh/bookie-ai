@@ -37,9 +37,8 @@ class TransactionDetailScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 24),
               FilledButton.icon(
-                onPressed: () => ref
-                    .read(transactionsProvider.notifier)
-                    .fetchTransactions(),
+                onPressed: () =>
+                    ref.read(transactionsProvider.notifier).fetchTransactions(),
                 icon: const Icon(Icons.refresh),
                 label: const Text('Retry'),
               ),
@@ -98,7 +97,6 @@ class _TransactionDetailView extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(horizontal: 20),
         children: [
           const SizedBox(height: 16),
-
           Center(
             child: Column(
               children: [
@@ -147,7 +145,6 @@ class _TransactionDetailView extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 28),
-
           _DetailCard(
             children: [
               _DetailRow(
@@ -202,8 +199,7 @@ class _TransactionDetailView extends ConsumerWidget {
                 label: 'Source',
                 value: _formatSource(transaction.sourceType),
               ),
-              if (transaction.note != null &&
-                  transaction.note!.isNotEmpty) ...[
+              if (transaction.note != null && transaction.note!.isNotEmpty) ...[
                 const _Divider(),
                 _DetailRow(
                   icon: Icons.notes_outlined,
@@ -213,13 +209,11 @@ class _TransactionDetailView extends ConsumerWidget {
               ],
             ],
           ),
-
           if (transaction.parseConfidence < 1.0 ||
               transaction.categoryConfidence < 1.0) ...[
             const SizedBox(height: 16),
             _ConfidenceCard(transaction: transaction),
           ],
-
           if (transaction.fxRateUsed != null) ...[
             const SizedBox(height: 16),
             _DetailCard(
@@ -232,7 +226,6 @@ class _TransactionDetailView extends ConsumerWidget {
               ],
             ),
           ],
-
           const SizedBox(height: 32),
         ],
       ),
@@ -381,7 +374,7 @@ class _Divider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Divider(
+    return const Divider(
       color: AppColors.divider,
       height: 1,
     );

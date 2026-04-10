@@ -166,7 +166,7 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen>
         children: [
           _buildBubble(_messages.first),
           const SizedBox(height: 32),
-          Text(
+          const Text(
             'Try asking...',
             style: TextStyle(
               color: AppColors.textSecondary,
@@ -246,7 +246,7 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen>
             color: AppColors.surface,
             borderRadius: BorderRadius.circular(16),
           ),
-          child: Row(
+          child: const Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               SizedBox(
@@ -257,7 +257,7 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen>
                   color: AppColors.accent,
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Text(
                 'Thinking...',
                 style: TextStyle(
@@ -280,7 +280,7 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen>
         top: 8,
         bottom: MediaQuery.of(context).padding.bottom + 8,
       ),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: AppColors.primary,
         border: Border(
           top: BorderSide(
@@ -297,7 +297,7 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen>
               style: const TextStyle(color: AppColors.textPrimary),
               decoration: InputDecoration(
                 hintText: 'Ask me anything...',
-                hintStyle: TextStyle(color: AppColors.textSecondary),
+                hintStyle: const TextStyle(color: AppColors.textSecondary),
                 filled: true,
                 fillColor: AppColors.surface,
                 border: OutlineInputBorder(
@@ -329,9 +329,7 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen>
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: _isListening
-                      ? AppColors.expense
-                      : AppColors.accent,
+                  color: _isListening ? AppColors.expense : AppColors.accent,
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
@@ -345,7 +343,7 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen>
             const SizedBox(width: 4),
             IconButton(
               onPressed: () => _sendMessage(_controller.text),
-              icon: Icon(Icons.send, color: AppColors.accent),
+              icon: const Icon(Icons.send, color: AppColors.accent),
             ),
           ],
         ],
