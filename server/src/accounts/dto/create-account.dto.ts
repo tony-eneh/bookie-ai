@@ -6,7 +6,7 @@ import {
   IsBoolean,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { AccountType } from '../../../generated/prisma/client.js';
+import { AccountType } from '@prisma/client';
 
 export class CreateAccountDto {
   @ApiProperty({ example: 'Main Checking' })

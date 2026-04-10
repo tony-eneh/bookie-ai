@@ -1,11 +1,12 @@
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider     = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
 }
+
+// Prisma 7 reads the datasource URL from prisma.config.ts via process.env.DATABASE_URL.
 
 // ─── Enums ───────────────────────────────────────────────────────────────────
 

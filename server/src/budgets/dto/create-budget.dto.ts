@@ -8,7 +8,7 @@ import {
   Min,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { BudgetPeriodType } from '../../../generated/prisma/client.js';
+import { BudgetPeriodType } from '@prisma/client';
 
 export class CreateBudgetDto {
   @ApiProperty({ example: 'Groceries Budget' })

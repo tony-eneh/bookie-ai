@@ -7,7 +7,7 @@ import {
   Min,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { GoalPriority } from '../../../generated/prisma/client.js';
+import { GoalPriority } from '@prisma/client';
 
 export class CreateGoalDto {
   @ApiProperty({ example: 'Emergency Fund' })

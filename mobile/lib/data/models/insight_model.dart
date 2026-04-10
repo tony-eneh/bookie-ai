@@ -1,3 +1,4 @@
+import 'package:bookie_ai/core/utils/json_parsers.dart';
 import 'package:bookie_ai/data/models/transaction_model.dart';
 
 class DashboardData {
@@ -25,9 +26,9 @@ class DashboardData {
 
   factory DashboardData.fromJson(Map<String, dynamic> json) {
     return DashboardData(
-      totalIncome: (json['totalIncome'] as num?)?.toDouble() ?? 0.0,
-      totalExpenses: (json['totalExpenses'] as num?)?.toDouble() ?? 0.0,
-      netCashFlow: (json['netCashFlow'] as num?)?.toDouble() ?? 0.0,
+      totalIncome: parseDouble(json['totalIncome']),
+      totalExpenses: parseDouble(json['totalExpenses']),
+      netCashFlow: parseDouble(json['netCashFlow']),
       budgetProgress: (json['budgetProgress'] as List<dynamic>?)
               ?.map((e) =>
                   BudgetProgress.fromJson(e as Map<String, dynamic>))
@@ -95,9 +96,9 @@ class BudgetProgress {
   factory BudgetProgress.fromJson(Map<String, dynamic> json) {
     return BudgetProgress(
       name: json['name'] as String,
-      amount: (json['amount'] as num).toDouble(),
-      used: (json['used'] as num?)?.toDouble() ?? 0.0,
-      percentage: (json['percentage'] as num?)?.toDouble() ?? 0.0,
+      amount: parseDouble(json['amount']),
+      used: parseDouble(json['used']),
+      percentage: parseDouble(json['percentage']),
     );
   }
 
@@ -132,7 +133,7 @@ class CategoryBreakdown {
     return CategoryBreakdown(
       name: json['name'] as String,
       icon: json['icon'] as String? ?? '📦',
-      amount: (json['amount'] as num).toDouble(),
+      amount: parseDouble(json['amount']),
       count: json['count'] as int? ?? 0,
     );
   }
@@ -169,9 +170,9 @@ class GoalProgress {
   factory GoalProgress.fromJson(Map<String, dynamic> json) {
     return GoalProgress(
       title: json['title'] as String,
-      targetAmount: (json['targetAmount'] as num).toDouble(),
-      currentAmount: (json['currentAmount'] as num?)?.toDouble() ?? 0.0,
-      percentage: (json['percentage'] as num?)?.toDouble() ?? 0.0,
+      targetAmount: parseDouble(json['targetAmount']),
+      currentAmount: parseDouble(json['currentAmount']),
+      percentage: parseDouble(json['percentage']),
       status: json['status'] as String? ?? 'ON_TRACK',
     );
   }
@@ -212,14 +213,11 @@ class WeeklySummary {
 
   factory WeeklySummary.fromJson(Map<String, dynamic> json) {
     return WeeklySummary(
-      totalIncome: (json['totalIncome'] as num?)?.toDouble() ?? 0.0,
-      totalExpenses:
-          (json['totalExpenses'] as num?)?.toDouble() ?? 0.0,
-      netCashFlow: (json['netCashFlow'] as num?)?.toDouble() ?? 0.0,
-      incomeChange:
-          (json['incomeChange'] as num?)?.toDouble() ?? 0.0,
-      expenseChange:
-          (json['expenseChange'] as num?)?.toDouble() ?? 0.0,
+      totalIncome: parseDouble(json['totalIncome']),
+      totalExpenses: parseDouble(json['totalExpenses']),
+      netCashFlow: parseDouble(json['netCashFlow']),
+      incomeChange: parseDouble(json['incomeChange']),
+      expenseChange: parseDouble(json['expenseChange']),
       topCategories: (json['topCategories'] as List<dynamic>?)
               ?.map((e) =>
                   CategoryBreakdown.fromJson(e as Map<String, dynamic>))

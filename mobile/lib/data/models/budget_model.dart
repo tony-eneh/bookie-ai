@@ -1,3 +1,4 @@
+import 'package:bookie_ai/core/utils/json_parsers.dart';
 import 'package:bookie_ai/data/models/category_model.dart';
 
 class Budget {
@@ -47,7 +48,7 @@ class Budget {
           ? Category.fromJson(json['category'] as Map<String, dynamic>)
           : null,
       periodType: json['periodType'] as String,
-      amount: (json['amount'] as num).toDouble(),
+      amount: parseDouble(json['amount']),
       currency: json['currency'] as String,
       startDate: DateTime.parse(json['startDate'] as String),
       endDate: json['endDate'] != null
@@ -55,11 +56,11 @@ class Budget {
           : null,
       isActive: json['isActive'] as bool? ?? true,
       createdAt: DateTime.parse(json['createdAt'] as String),
-      amountUsed: (json['amountUsed'] as num?)?.toDouble(),
-      amountRemaining: (json['amountRemaining'] as num?)?.toDouble(),
-      percentageUsed: (json['percentageUsed'] as num?)?.toDouble(),
+      amountUsed: parseNullableDouble(json['amountUsed']),
+      amountRemaining: parseNullableDouble(json['amountRemaining']),
+      percentageUsed: parseNullableDouble(json['percentageUsed']),
       isOverspent: json['isOverspent'] as bool?,
-      projectedOverspend: (json['projectedOverspend'] as num?)?.toDouble(),
+      projectedOverspend: parseNullableDouble(json['projectedOverspend']),
     );
   }
 

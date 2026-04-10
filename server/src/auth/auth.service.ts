@@ -6,12 +6,11 @@ import {
   Logger,
   UnauthorizedException,
 } from '@nestjs/common';
-import { randomBytes, createHash } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { hash, compare } from 'bcryptjs';
 import { OAuth2Client } from 'google-auth-library';
-import { v4 as uuidv4 } from 'uuid';
 import { EmailQueueService } from '../mail/email-queue.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { UsersService } from '../users/users.service.js';
@@ -279,7 +278,7 @@ export class AuthService {
 
     const accessToken = this.jwtService.sign(payload);
 
-    const refreshToken = uuidv4();
+    const refreshToken = randomUUID();
     const refreshExpirationDays = Number(
       this.configService.get<string>('JWT_REFRESH_EXPIRATION_DAYS') ?? '7',
     );

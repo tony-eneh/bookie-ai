@@ -2,8 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 abstract final class ApiConstants {
-  static const String _webBaseUrl = 'http://localhost:3000/api';
-  static const String _mobileBaseUrl = 'http://10.0.2.2:3000/api';
+  static const String defaultBaseUrl =
+      'https://server-snowy-nine-48.vercel.app/api';
 
   static String get baseUrl {
     const genericOverride = String.fromEnvironment(
@@ -16,7 +16,7 @@ abstract final class ApiConstants {
     }
 
     if (kIsWeb) {
-      return dotenv.env['API_BASE_URL'] ?? _webBaseUrl;
+      return dotenv.env['API_BASE_URL'] ?? defaultBaseUrl;
     }
 
     if (defaultTargetPlatform == TargetPlatform.android) {
@@ -31,10 +31,10 @@ abstract final class ApiConstants {
 
       return dotenv.env['API_BASE_URL_ANDROID'] ??
           dotenv.env['API_BASE_URL'] ??
-          _mobileBaseUrl;
+          defaultBaseUrl;
     }
 
-    return dotenv.env['API_BASE_URL'] ?? _webBaseUrl;
+    return dotenv.env['API_BASE_URL'] ?? defaultBaseUrl;
   }
 
   // Auth
@@ -58,7 +58,7 @@ abstract final class ApiConstants {
   // Budgets
   static const String budgets = '/budgets';
   static String budget(String id) => '/budgets/$id';
-  static String budgetProgress(String id) => '/budgets/$id/progress';
+  static String budgetProgress(String id) => '/budgets/$id';
 
   // Goals
   static const String goals = '/goals';
@@ -102,10 +102,10 @@ abstract final class ApiConstants {
   static const String fxSimulation = '/assistant/fx-simulation';
 
   // FX Rates
-  static const String fxConvert = '/fx-rates/convert';
-  static const String fxLatest = '/fx-rates/latest';
+  static const String fxConvert = '/fx/convert';
+  static const String fxLatest = '/fx/rates';
 
   // Users
   static const String userProfile = '/users/me';
-  static const String userPreferences = '/users/me/preferences';
+  static const String userPreferences = '/users/preferences';
 }

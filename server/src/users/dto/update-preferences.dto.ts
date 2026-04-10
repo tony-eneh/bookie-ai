@@ -5,7 +5,7 @@ import {
   FinancialPersonality,
   FxPreference,
   IncomeStyle,
-} from '../../../generated/prisma/client.js';
+} from '@prisma/client';
 
 export class UpdatePreferencesDto {
   @ApiPropertyOptional({ enum: NotificationMode })

@@ -24,7 +24,7 @@ Resolution order:
 1. `--dart-define=API_BASE_URL=...`
 2. `--dart-define=API_BASE_URL_ANDROID=...` on Android only
 3. values from `assets/env/.env`
-4. built-in defaults
+4. built-in default `https://server-snowy-nine-48.vercel.app/api`
 
 ## Setup
 

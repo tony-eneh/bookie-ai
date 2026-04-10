@@ -1,6 +1,6 @@
 import { IsNumber, IsEnum } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { ReconciliationSource } from '../../../generated/prisma/client.js';
+import { ReconciliationSource } from '@prisma/client';
 
 export class ReconcileAccountDto {
   @ApiProperty({ example: 5000.0, description: 'Actual balance from external source' })
