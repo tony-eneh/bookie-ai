@@ -12,7 +12,7 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
-import { TransactionType } from '../../../generated/prisma/client.js';
+import { TransactionType } from '@prisma/client';
 
 class StatementImportTransactionDto {
   @ApiProperty({ enum: TransactionType, example: TransactionType.EXPENSE })
