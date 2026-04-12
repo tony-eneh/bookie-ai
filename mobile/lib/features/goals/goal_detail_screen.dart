@@ -157,7 +157,7 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
               'Monthly Needed',
               CurrencyFormatter.format(goal.monthlyRequired!,
                   currency: goal.targetCurrency)),
-        _statCard('Target Date', DateFormatter.fullDate(goal.targetDate!)),
+        _statCard('Target Date', DateFormatter.fullDate(goal.targetDate)),
       ],
     );
   }

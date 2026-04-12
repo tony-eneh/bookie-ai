@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bookie_ai/core/theme/app_colors.dart';
 import 'package:bookie_ai/core/utils/currency_formatter.dart';
-import 'package:bookie_ai/core/utils/date_formatter.dart';
 import 'package:bookie_ai/data/models/goal_model.dart';
 import 'package:bookie_ai/data/providers/goals_provider.dart';
 import 'package:bookie_ai/widgets/shimmer_loading.dart';
