@@ -42,6 +42,7 @@ SMTP_USER=replace-me
 SMTP_PASS=replace-me
 SMTP_FROM=BookieAI <no-reply@bookieai.com>
 PORT=3000
+HOST=0.0.0.0
 ```
 
 Notes:
@@ -63,6 +64,9 @@ npm run start:dev
 ```
 
 The API listens on `http://localhost:3000` by default.
+
+For mobile-device testing on your local network, set `HOST=0.0.0.0` so the
+server accepts connections from other devices on the same LAN.
 
 The API base URL is:
 
