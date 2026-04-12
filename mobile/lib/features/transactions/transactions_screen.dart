@@ -12,8 +12,7 @@ class TransactionsScreen extends ConsumerStatefulWidget {
   const TransactionsScreen({super.key});
 
   @override
-  ConsumerState<TransactionsScreen> createState() =>
-      _TransactionsScreenState();
+  ConsumerState<TransactionsScreen> createState() => _TransactionsScreenState();
 }
 
 class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
@@ -122,7 +121,6 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
               ),
             ),
             const SizedBox(height: 12),
-
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: TextField(
@@ -131,8 +129,8 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                 decoration: InputDecoration(
                   hintText: 'Search transactions...',
                   hintStyle: const TextStyle(color: AppColors.textTertiary),
-                  prefixIcon: const Icon(Icons.search,
-                      color: AppColors.textTertiary),
+                  prefixIcon:
+                      const Icon(Icons.search, color: AppColors.textTertiary),
                   filled: true,
                   fillColor: AppColors.surface,
                   border: OutlineInputBorder(
@@ -141,11 +139,11 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                   ),
                   contentPadding: const EdgeInsets.symmetric(vertical: 12),
                 ),
-                onChanged: (v) => setState(() => _searchQuery = v.toLowerCase()),
+                onChanged: (v) =>
+                    setState(() => _searchQuery = v.toLowerCase()),
               ),
             ),
             const SizedBox(height: 12),
-
             SizedBox(
               height: 38,
               child: ListView.separated(
@@ -190,7 +188,6 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
               ),
             ),
             const SizedBox(height: 8),
-
             Expanded(
               child: transactionsAsync.when(
                 loading: () => const SingleChildScrollView(
@@ -212,8 +209,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                               t.counterparty ??
                               '')
                           .toLowerCase();
-                      final category =
-                          (t.category?.name ?? '').toLowerCase();
+                      final category = (t.category?.name ?? '').toLowerCase();
                       return name.contains(_searchQuery) ||
                           category.contains(_searchQuery);
                     }).toList();
@@ -298,8 +294,7 @@ class _GroupedTransactionList extends StatelessWidget {
             return const Padding(
               padding: EdgeInsets.all(24),
               child: Center(
-                child:
-                    CircularProgressIndicator(color: AppColors.accent),
+                child: CircularProgressIndicator(color: AppColors.accent),
               ),
             );
           }
@@ -441,10 +436,10 @@ class _TransactionsShimmer extends StatelessWidget {
           const SizedBox(height: 12),
           ...List.generate(
             6,
-            (_) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
+            (_) => const Padding(
+              padding: EdgeInsets.only(bottom: 12),
               child: Row(
-                children: const [
+                children: [
                   ShimmerBox(width: 44, height: 44, borderRadius: 22),
                   SizedBox(width: 12),
                   Expanded(

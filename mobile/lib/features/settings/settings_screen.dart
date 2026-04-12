@@ -66,7 +66,7 @@ class SettingsScreen extends ConsumerWidget {
             onTap: () => _confirmLogout(context, ref),
           ),
           const SizedBox(height: 24),
-          Center(
+          const Center(
             child: Text(
               'BookieAI v${AppConstants.appVersion}',
               style: TextStyle(
@@ -102,7 +102,7 @@ class SettingsScreen extends ConsumerWidget {
             backgroundColor: AppColors.accent.withValues(alpha: 0.2),
             child: Text(
               initials,
-              style: TextStyle(
+              style: const TextStyle(
                 color: AppColors.accent,
                 fontWeight: FontWeight.bold,
                 fontSize: 18,
@@ -125,7 +125,7 @@ class SettingsScreen extends ConsumerWidget {
                 if (email != null)
                   Text(
                     email,
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 14,
                     ),
@@ -143,7 +143,7 @@ class SettingsScreen extends ConsumerWidget {
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
       child: Text(
         title.toUpperCase(),
-        style: TextStyle(
+        style: const TextStyle(
           color: AppColors.textSecondary,
           fontSize: 12,
           fontWeight: FontWeight.w600,
@@ -173,11 +173,12 @@ class SettingsScreen extends ConsumerWidget {
       subtitle: subtitle != null
           ? Text(
               subtitle,
-              style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+              style:
+                  const TextStyle(color: AppColors.textSecondary, fontSize: 13),
             )
           : null,
-      trailing:
-          Icon(Icons.chevron_right, color: AppColors.textSecondary, size: 20),
+      trailing: const Icon(Icons.chevron_right,
+          color: AppColors.textSecondary, size: 20),
       onTap: onTap,
     );
   }
@@ -193,7 +194,8 @@ class SettingsScreen extends ConsumerWidget {
         shrinkWrap: true,
         children: AppConstants.supportedCurrencies
             .map((c) => ListTile(
-                  title: Text(c, style: const TextStyle(color: AppColors.textPrimary)),
+                  title: Text(c,
+                      style: const TextStyle(color: AppColors.textPrimary)),
                   onTap: () => Navigator.pop(context),
                 ))
             .toList(),
@@ -221,7 +223,7 @@ class SettingsScreen extends ConsumerWidget {
               ref.read(authProvider.notifier).logout();
               context.go('/login');
             },
-            child: Text('Log Out',
+            child: const Text('Log Out',
                 style: TextStyle(color: AppColors.expense)),
           ),
         ],

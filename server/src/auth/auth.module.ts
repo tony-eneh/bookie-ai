@@ -6,6 +6,7 @@ import { AuthService } from './auth.service.js';
 import { AuthController } from './auth.controller.js';
 import { JwtStrategy } from './strategies/jwt.strategy.js';
 import { LocalStrategy } from './strategies/local.strategy.js';
+import { MailModule } from '../mail/mail.module.js';
 import { UsersModule } from '../users/users.module.js';
 
 function getPositiveNumberEnv(
@@ -40,6 +41,7 @@ function getPositiveNumberEnv(
       },
       inject: [ConfigService],
     }),
+    MailModule,
     UsersModule,
   ],
   providers: [AuthService, JwtStrategy, LocalStrategy],

@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bookie_ai/core/theme/app_colors.dart';
 import 'package:bookie_ai/core/utils/currency_formatter.dart';
-import 'package:bookie_ai/core/utils/date_formatter.dart';
 import 'package:bookie_ai/data/models/goal_model.dart';
 import 'package:bookie_ai/data/providers/goals_provider.dart';
 import 'package:bookie_ai/widgets/shimmer_loading.dart';
@@ -68,7 +67,8 @@ class _GoalsContentState extends State<_GoalsContent> {
   bool _showAchieved = false;
 
   List<Goal> get _filtered => widget.goals
-      .where((g) => _showAchieved ? g.status == 'ACHIEVED' : g.status != 'ACHIEVED')
+      .where((g) =>
+          _showAchieved ? g.status == 'ACHIEVED' : g.status != 'ACHIEVED')
       .toList();
 
   double get _totalSaved =>
@@ -117,7 +117,8 @@ class _GoalsContentState extends State<_GoalsContent> {
             child: Center(
               child: Text(
                 _showAchieved ? 'No achieved goals yet' : 'No active goals',
-                style: textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
+                style: textTheme.bodyMedium
+                    ?.copyWith(color: AppColors.textSecondary),
               ),
             ),
           ),
@@ -157,7 +158,8 @@ class _SummaryRow extends StatelessWidget {
                         color: AppColors.accent, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 4),
                 Text('Active Goals',
-                    style: textTheme.bodySmall?.copyWith(color: AppColors.textSecondary)),
+                    style: textTheme.bodySmall
+                        ?.copyWith(color: AppColors.textSecondary)),
               ],
             ),
           ),
@@ -173,13 +175,15 @@ class _SummaryRow extends StatelessWidget {
             child: Column(
               children: [
                 Text(
-                  CurrencyFormatter.format(totalSaved, currency: 'USD', compact: true),
+                  CurrencyFormatter.format(totalSaved,
+                      currency: 'USD', compact: true),
                   style: textTheme.headlineSmall?.copyWith(
                       color: AppColors.accent, fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 4),
                 Text('Total Saved',
-                    style: textTheme.bodySmall?.copyWith(color: AppColors.textSecondary)),
+                    style: textTheme.bodySmall
+                        ?.copyWith(color: AppColors.textSecondary)),
               ],
             ),
           ),
@@ -190,7 +194,8 @@ class _SummaryRow extends StatelessWidget {
 }
 
 class _TabButton extends StatelessWidget {
-  const _TabButton({required this.label, required this.selected, required this.onTap});
+  const _TabButton(
+      {required this.label, required this.selected, required this.onTap});
 
   final String label;
   final bool selected;
@@ -203,7 +208,9 @@ class _TabButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? AppColors.accent.withValues(alpha: 0.2) : AppColors.surface,
+          color: selected
+              ? AppColors.accent.withValues(alpha: 0.2)
+              : AppColors.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: selected ? AppColors.accent : AppColors.surfaceBorder,
@@ -298,7 +305,8 @@ class _GoalCard extends StatelessWidget {
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
                           color: _priorityColor.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(6),
@@ -316,13 +324,15 @@ class _GoalCard extends StatelessWidget {
                   const SizedBox(height: 6),
                   Text(
                     '${CurrencyFormatter.format(goal.currentAmount, currency: goal.targetCurrency, compact: true)} / ${CurrencyFormatter.format(goal.targetAmount, currency: goal.targetCurrency, compact: true)}',
-                    style: textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
+                    style: textTheme.bodySmall
+                        ?.copyWith(color: AppColors.textSecondary),
                   ),
                   const SizedBox(height: 6),
                   Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
                           color: _statusColor.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(6),
@@ -339,13 +349,16 @@ class _GoalCard extends StatelessWidget {
                       if (goal.monthlyRequired != null)
                         Text(
                           '${CurrencyFormatter.format(goal.monthlyRequired!, currency: goal.targetCurrency, compact: true)}/mo',
-                          style: textTheme.bodySmall?.copyWith(color: AppColors.textTertiary),
+                          style: textTheme.bodySmall
+                              ?.copyWith(color: AppColors.textTertiary),
                         ),
                       const SizedBox(width: 8),
                       Text(
                         daysLeft > 0 ? '${daysLeft}d left' : 'Past due',
                         style: textTheme.bodySmall?.copyWith(
-                          color: daysLeft > 0 ? AppColors.textTertiary : AppColors.expense,
+                          color: daysLeft > 0
+                              ? AppColors.textTertiary
+                              : AppColors.expense,
                         ),
                       ),
                     ],
@@ -382,19 +395,23 @@ class _EmptyState extends StatelessWidget {
         Center(
           child: Column(
             children: [
-              const Icon(Icons.flag_outlined, size: 64, color: AppColors.textTertiary),
+              const Icon(Icons.flag_outlined,
+                  size: 64, color: AppColors.textTertiary),
               const SizedBox(height: 16),
               Text('No goals yet',
-                  style: textTheme.titleLarge?.copyWith(color: AppColors.textPrimary)),
+                  style: textTheme.titleLarge
+                      ?.copyWith(color: AppColors.textPrimary)),
               const SizedBox(height: 8),
               Text('Set a financial goal to start saving',
-                  style: textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary)),
+                  style: textTheme.bodyMedium
+                      ?.copyWith(color: AppColors.textSecondary)),
               const SizedBox(height: 24),
               FilledButton.icon(
                 onPressed: onAdd,
                 icon: const Icon(Icons.add),
                 label: const Text('Create Goal'),
-                style: FilledButton.styleFrom(backgroundColor: AppColors.accent),
+                style:
+                    FilledButton.styleFrom(backgroundColor: AppColors.accent),
               ),
             ],
           ),
@@ -420,13 +437,16 @@ class _ErrorView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.cloud_off_rounded, size: 64, color: AppColors.textTertiary),
+            const Icon(Icons.cloud_off_rounded,
+                size: 64, color: AppColors.textTertiary),
             const SizedBox(height: 16),
             Text('Something went wrong',
-                style: textTheme.titleLarge?.copyWith(color: AppColors.textPrimary)),
+                style: textTheme.titleLarge
+                    ?.copyWith(color: AppColors.textPrimary)),
             const SizedBox(height: 8),
             Text(message,
-                style: textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
+                style: textTheme.bodyMedium
+                    ?.copyWith(color: AppColors.textSecondary),
                 textAlign: TextAlign.center),
             const SizedBox(height: 24),
             FilledButton.icon(
@@ -454,16 +474,18 @@ class _GoalsShimmer extends StatelessWidget {
           const SizedBox(height: 12),
           const ShimmerBox(width: 80, height: 28),
           const SizedBox(height: 20),
-          Row(children: [
+          const Row(children: [
             Expanded(child: ShimmerCard(height: 80)),
-            const SizedBox(width: 12),
+            SizedBox(width: 12),
             Expanded(child: ShimmerCard(height: 80)),
           ]),
           const SizedBox(height: 20),
-          ...List.generate(3, (_) => const Padding(
-                padding: EdgeInsets.only(bottom: 12),
-                child: ShimmerCard(height: 110),
-              )),
+          ...List.generate(
+              3,
+              (_) => const Padding(
+                    padding: EdgeInsets.only(bottom: 12),
+                    child: ShimmerCard(height: 110),
+                  )),
         ],
       ),
     );

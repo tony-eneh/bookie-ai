@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:bookie_ai/core/constants/api_constants.dart';
@@ -21,7 +22,8 @@ class ApiService {
   late final Dio _dio;
   final Ref _ref;
   bool _isRefreshing = false;
-  final _refreshQueue = <({Completer<Response> completer, RequestOptions options})>[];
+  final _refreshQueue =
+      <({Completer<Response> completer, RequestOptions options})>[];
 
   ApiService(this._ref) {
     _dio = Dio(
@@ -207,6 +209,11 @@ class ApiService {
           'An unexpected error occurred';
     }
 
+    final androidLocalDevHint = _androidLocalDevHint(error.type);
+    if (androidLocalDevHint != null) {
+      return androidLocalDevHint;
+    }
+
     return switch (error.type) {
       DioExceptionType.connectionTimeout ||
       DioExceptionType.sendTimeout ||
@@ -216,5 +223,34 @@ class ApiService {
         'No internet connection. Please check your network.',
       _ => error.message ?? 'An unexpected error occurred',
     };
+  }
+
+  String? _androidLocalDevHint(DioExceptionType errorType) {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+      return null;
+    }
+
+    if (errorType != DioExceptionType.connectionTimeout &&
+        errorType != DioExceptionType.connectionError) {
+      return null;
+    }
+
+    final baseUrl = ApiConstants.baseUrl;
+
+    if (baseUrl.contains('10.0.2.2')) {
+      return 'Cannot reach $baseUrl from a physical Android device. '
+          '10.0.2.2 only works on the Android emulator. '
+          'Use your computer\'s LAN IP instead, for example '
+          'http://192.168.x.x:3000/api, and make sure the server is running '
+          'on 0.0.0.0.';
+    }
+
+    if (baseUrl.contains('localhost') || baseUrl.contains('127.0.0.1')) {
+      return 'Cannot reach $baseUrl from Android. localhost points to the '
+          'device itself. Use 10.0.2.2 for the emulator or your computer\'s '
+          'LAN IP for a physical device.';
+    }
+
+    return null;
   }
 }

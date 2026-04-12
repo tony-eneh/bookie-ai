@@ -247,6 +247,19 @@ User flow:
 * PDF (basic parsing for MVP)
 * plain text email summaries
 
+### Current MVP limitation
+
+* statement import only supports transactions that are unambiguously `income` or `expense`
+* imported `transfer` transactions must be rejected for now because the import payload does not yet capture transfer direction or linked source/destination account context
+
+### TODO: full transfer import support
+
+Add a follow-up contract for statement imports that includes enough metadata to model transfers correctly, such as:
+
+* transfer direction relative to the imported account
+* source account and destination account identifiers when known
+* creation of linked offsetting transactions when the transfer spans two tracked accounts
+
 ---
 
 ## C. Statement reconciliation

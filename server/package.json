@@ -6,8 +6,11 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
-    "build": "prisma generate && nest build",
+    "build": "npm run prisma:generate && nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
+    "prisma:patch-generated-client": "node scripts/patch-prisma-generated-client.cjs",
+    "prisma:generate": "prisma generate && npm run prisma:patch-generated-client",
+    "prisma:seed": "npm run prisma:generate && npm run build && node dist/prisma/seed.js",
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
@@ -37,7 +40,9 @@
     "bullmq": "^5.71.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.4",
+    "google-auth-library": "^10.6.2",
     "ioredis": "^5.10.1",
+    "nodemailer": "^8.0.4",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "passport-local": "^1.0.0",
@@ -56,6 +61,7 @@
     "@types/express": "^5.0.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^22.10.7",
+    "@types/nodemailer": "^7.0.11",
     "@types/passport-jwt": "^4.0.1",
     "@types/passport-local": "^1.0.38",
     "@types/supertest": "^6.0.2",
@@ -95,8 +101,5 @@
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
-  },
-  "prisma": {
-    "seed": "npx ts-node prisma/seed.ts"
   }
 }

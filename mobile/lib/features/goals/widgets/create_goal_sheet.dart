@@ -116,7 +116,7 @@ class _CreateGoalSheetState extends ConsumerState<CreateGoalSheet> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: _currency,
+                initialValue: _currency,
                 dropdownColor: AppColors.surface,
                 decoration: _inputDecoration('Currency'),
                 items: AppConstants.supportedCurrencies
@@ -147,14 +147,16 @@ class _CreateGoalSheetState extends ConsumerState<CreateGoalSheet> {
                       selectedColor: AppColors.accent.withValues(alpha: 0.2),
                       backgroundColor: AppColors.surface,
                       labelStyle: TextStyle(
-                        color:
-                            selected ? AppColors.accent : AppColors.textSecondary,
+                        color: selected
+                            ? AppColors.accent
+                            : AppColors.textSecondary,
                         fontWeight:
                             selected ? FontWeight.w600 : FontWeight.w400,
                       ),
                       side: BorderSide(
-                        color:
-                            selected ? AppColors.accent : AppColors.surfaceBorder,
+                        color: selected
+                            ? AppColors.accent
+                            : AppColors.surfaceBorder,
                       ),
                       onSelected: (_) => setState(() => _priority = p),
                     ),

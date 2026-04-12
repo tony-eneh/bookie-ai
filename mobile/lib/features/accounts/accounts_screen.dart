@@ -24,8 +24,7 @@ class AccountsScreen extends ConsumerWidget {
           ),
           error: (error, _) => _ErrorView(
             message: error.toString(),
-            onRetry: () =>
-                ref.read(accountsProvider.notifier).fetchAccounts(),
+            onRetry: () => ref.read(accountsProvider.notifier).fetchAccounts(),
           ),
           data: (accounts) => RefreshIndicator(
             color: AppColors.accent,
@@ -65,7 +64,8 @@ class _AccountsContent extends StatelessWidget {
   final List<Account> accounts;
 
   double get _totalBalance {
-    return accounts.fold(0.0, (sum, a) => sum + (a.convertedBalance ?? a.currentBalance));
+    return accounts.fold(
+        0.0, (sum, a) => sum + (a.convertedBalance ?? a.currentBalance));
   }
 
   @override
@@ -84,10 +84,8 @@ class _AccountsContent extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 20),
-
         _TotalBalanceCard(totalBalance: _totalBalance),
         const SizedBox(height: 20),
-
         ...accounts.map((account) => Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: _AccountCard(account: account),
@@ -299,7 +297,7 @@ class _AccountCard extends StatelessWidget {
             if (account.confidence != null ||
                 account.lastReconciledAt != null) ...[
               const SizedBox(height: 12),
-              Divider(color: AppColors.divider, height: 1),
+              const Divider(color: AppColors.divider, height: 1),
               const SizedBox(height: 10),
               Row(
                 children: [

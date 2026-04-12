@@ -1,11 +1,41 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 abstract final class ApiConstants {
   static const String defaultBaseUrl =
       'https://server-snowy-nine-48.vercel.app/api';
 
-  static const String baseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: defaultBaseUrl,
-  );
+  static String get baseUrl {
+    const genericOverride = String.fromEnvironment(
+      'API_BASE_URL',
+      defaultValue: '',
+    );
+
+    if (genericOverride.isNotEmpty) {
+      return genericOverride;
+    }
+
+    if (kIsWeb) {
+      return dotenv.env['API_BASE_URL'] ?? defaultBaseUrl;
+    }
+
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      const androidOverride = String.fromEnvironment(
+        'API_BASE_URL_ANDROID',
+        defaultValue: '',
+      );
+
+      if (androidOverride.isNotEmpty) {
+        return androidOverride;
+      }
+
+      return dotenv.env['API_BASE_URL_ANDROID'] ??
+          dotenv.env['API_BASE_URL'] ??
+          defaultBaseUrl;
+    }
+
+    return dotenv.env['API_BASE_URL'] ?? defaultBaseUrl;
+  }
 
   // Auth
   static const String register = '/auth/register';

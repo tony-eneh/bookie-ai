@@ -44,8 +44,7 @@ export class AuthController {
 
   @Post('google')
   @ApiOperation({
-    summary:
-      'Authenticate with Google (placeholder until ID token verification is implemented)',
+    summary: 'Authenticate with Google using a verified Google ID token',
   })
   google(@Body() dto: GoogleAuthDto) {
     return this.authService.googleAuth(dto);
@@ -70,8 +69,7 @@ export class AuthController {
 
   @Post('forgot-password')
   @ApiOperation({
-    summary:
-      'Request a password reset email (email delivery not yet implemented)',
+    summary: 'Request a password reset email',
   })
   forgotPassword(@Body() dto: ForgotPasswordDto) {
     return this.authService.forgotPassword(dto.email);
@@ -79,8 +77,7 @@ export class AuthController {
 
   @Post('reset-password')
   @ApiOperation({
-    summary:
-      'Reset password using token (placeholder until token validation is implemented)',
+    summary: 'Reset password using a valid reset token',
   })
   resetPassword(@Body() dto: ResetPasswordDto) {
     return this.authService.resetPassword(dto.token, dto.newPassword);

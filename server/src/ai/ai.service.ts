@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 
 export interface ParsedTransaction {
   amount: number;
@@ -59,6 +60,8 @@ export interface FxSimulationResult {
 @Injectable()
 export class AiService {
   private readonly logger = new Logger(AiService.name);
+
+  constructor(private configService: ConfigService) {}
 
   async parseTransaction(rawText: string): Promise<ParsedTransaction> {
     const prompt = `Parse this financial message and extract transaction details: "${rawText}"`;
@@ -158,14 +161,80 @@ export class AiService {
     );
   }
 
-  // In the future this calls an actual LLM API; for now it returns mock data.
   private async callLLM<T>(
-    _prompt: string,
-    _systemPrompt: string,
+    prompt: string,
+    systemPrompt: string,
     mockFn: () => T,
   ): Promise<T> {
-    this.logger.debug('AI mock mode – returning structured mock response');
-    return mockFn();
+    const apiKey = this.configService.get<string>('OPENAI_API_KEY');
+    if (!apiKey) {
+      this.logger.debug('AI mock mode – OPENAI_API_KEY is not configured');
+      return mockFn();
+    }
+
+    try {
+      const responseText = await this.callOpenAiCompatibleApi(
+        systemPrompt,
+        `${prompt}\n\nReturn only valid JSON. Do not wrap it in markdown.`,
+      );
+      return JSON.parse(responseText) as T;
+    } catch (error) {
+      this.logger.warn(
+        `AI provider call failed, falling back to mock response: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return mockFn();
+    }
+  }
+
+  private async callOpenAiCompatibleApi(
+    systemPrompt: string,
+    userPrompt: string,
+  ) {
+    const apiKey = this.configService.getOrThrow<string>('OPENAI_API_KEY');
+    const model = this.configService.get<string>('OPENAI_MODEL') ?? 'gpt-4o-mini';
+    const baseUrl = (this.configService.get<string>('OPENAI_BASE_URL') ?? 'https://api.openai.com/v1').replace(/\/$/, '');
+
+    const response = await fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`AI provider responded with status ${response.status}`);
+    }
+
+    const payload = (await response.json()) as {
+      choices?: Array<{ message?: { content?: string | Array<{ type?: string; text?: string }> } }>;
+    };
+    const firstChoice = payload.choices?.[0]?.message?.content;
+
+    if (typeof firstChoice === 'string') {
+      return firstChoice;
+    }
+
+    if (Array.isArray(firstChoice)) {
+      const textContent = firstChoice
+        .filter((item) => item.type === 'text' && item.text)
+        .map((item) => item.text)
+        .join('');
+
+      if (textContent) {
+        return textContent;
+      }
+    }
+
+    throw new Error('AI provider returned an empty response');
   }
 
   // ─── Mock implementations ──────────────────────────────────────────────────

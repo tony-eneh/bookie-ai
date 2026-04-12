@@ -8,6 +8,8 @@ import { ResponseTransformInterceptor } from './common/interceptors/response-tra
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
+  const apiPrefix = 'api';
+  const host = configService.get<string>('HOST', '0.0.0.0');
 
   const corsOrigins = (configService.get<string>('CORS_ORIGINS') ??
     'http://localhost:3000,http://localhost:5173,http://localhost:8080')
@@ -54,10 +56,10 @@ async function bootstrap() {
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('api', app, document);
+  SwaggerModule.setup(`${apiPrefix}/docs`, app, document);
 
   const port = configService.get<number>('PORT', 3000);
 
-  await app.listen(port);
+  await app.listen(port, host);
 }
 bootstrap();

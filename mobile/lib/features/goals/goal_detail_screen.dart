@@ -144,17 +144,20 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
       spacing: 12,
       runSpacing: 12,
       children: [
-        _statCard('Target',
-            CurrencyFormatter.format(goal.targetAmount, currency: goal.targetCurrency)),
-        _statCard('Saved',
-            CurrencyFormatter.format(goal.currentAmount, currency: goal.targetCurrency)),
+        _statCard(
+            'Target',
+            CurrencyFormatter.format(goal.targetAmount,
+                currency: goal.targetCurrency)),
+        _statCard(
+            'Saved',
+            CurrencyFormatter.format(goal.currentAmount,
+                currency: goal.targetCurrency)),
         if (goal.monthlyRequired != null)
           _statCard(
               'Monthly Needed',
-              CurrencyFormatter.format(
-                  goal.monthlyRequired!, currency: goal.targetCurrency)),
-        if (goal.targetDate != null)
-          _statCard('Target Date', DateFormatter.fullDate(goal.targetDate!)),
+              CurrencyFormatter.format(goal.monthlyRequired!,
+                  currency: goal.targetCurrency)),
+        _statCard('Target Date', DateFormatter.fullDate(goal.targetDate)),
       ],
     );
   }
@@ -171,8 +174,8 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label,
-              style:
-                  TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+              style: const TextStyle(
+                  color: AppColors.textSecondary, fontSize: 12)),
           const SizedBox(height: 4),
           Text(value,
               style: const TextStyle(
@@ -196,11 +199,11 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          const Row(
             children: [
               Icon(Icons.lightbulb_outline, color: AppColors.accent, size: 18),
-              const SizedBox(width: 8),
-              const Text('AI Coaching',
+              SizedBox(width: 8),
+              Text('AI Coaching',
                   style: TextStyle(
                       color: AppColors.accent,
                       fontWeight: FontWeight.w600,
@@ -210,7 +213,7 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
           const SizedBox(height: 8),
           Text(
             p.coaching,
-            style: TextStyle(
+            style: const TextStyle(
                 color: AppColors.textPrimary, fontSize: 14, height: 1.5),
           ),
         ],
@@ -264,7 +267,7 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
               style: const TextStyle(color: AppColors.textPrimary),
               decoration: InputDecoration(
                 labelText: 'Amount (${goal.targetCurrency})',
-                labelStyle: TextStyle(color: AppColors.textSecondary),
+                labelStyle: const TextStyle(color: AppColors.textSecondary),
                 filled: true,
                 fillColor: AppColors.primary,
                 border: OutlineInputBorder(
@@ -278,18 +281,17 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () async {
-                  final amount =
-                      double.tryParse(amountController.text) ?? 0;
+                  final amount = double.tryParse(amountController.text) ?? 0;
                   if (amount <= 0) return;
                   Navigator.pop(ctx);
                   await ref.read(goalsProvider.notifier).addContribution(
-                        goal.id,
-                        {
-                          'amount': amount,
-                          'currency': goal.targetCurrency,
-                          'contributionDate': DateTime.now().toIso8601String(),
-                        },
-                      );
+                    goal.id,
+                    {
+                      'amount': amount,
+                      'currency': goal.targetCurrency,
+                      'contributionDate': DateTime.now().toIso8601String(),
+                    },
+                  );
                   _loadGoal();
                 },
                 style: ElevatedButton.styleFrom(
@@ -329,11 +331,11 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(DateFormatter.fullDate(c.contributionDate),
-                      style: TextStyle(
+                      style: const TextStyle(
                           color: AppColors.textSecondary, fontSize: 13)),
                   Text(
                     CurrencyFormatter.format(c.amount, currency: c.currency),
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: AppColors.accent,
                       fontWeight: FontWeight.w600,
                     ),

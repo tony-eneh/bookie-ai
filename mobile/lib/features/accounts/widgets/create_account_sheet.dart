@@ -22,7 +22,13 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
   bool _isPrimary = false;
   bool _isLoading = false;
 
-  static const _accountTypes = ['BANK', 'WALLET', 'CASH', 'SAVINGS', 'BUSINESS'];
+  static const _accountTypes = [
+    'BANK',
+    'WALLET',
+    'CASH',
+    'SAVINGS',
+    'BUSINESS'
+  ];
 
   static const _typeEmojis = {
     'BANK': '🏦',
@@ -104,7 +110,6 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
                 ),
               ),
               const SizedBox(height: 24),
-
               TextFormField(
                 controller: _nameController,
                 style: const TextStyle(color: AppColors.textPrimary),
@@ -117,7 +122,6 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
                 textCapitalization: TextCapitalization.words,
               ),
               const SizedBox(height: 20),
-
               Text(
                 'Account Type',
                 style: textTheme.titleSmall?.copyWith(
@@ -137,12 +141,14 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
                     selectedColor: AppColors.accent.withValues(alpha: 0.2),
                     backgroundColor: AppColors.surface,
                     labelStyle: TextStyle(
-                      color: selected ? AppColors.accent : AppColors.textSecondary,
+                      color:
+                          selected ? AppColors.accent : AppColors.textSecondary,
                       fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
                       fontSize: 13,
                     ),
                     side: BorderSide(
-                      color: selected ? AppColors.accent : AppColors.surfaceBorder,
+                      color:
+                          selected ? AppColors.accent : AppColors.surfaceBorder,
                     ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -151,9 +157,8 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
                 }).toList(),
               ),
               const SizedBox(height: 20),
-
               DropdownButtonFormField<String>(
-                value: _selectedCurrency,
+                initialValue: _selectedCurrency,
                 decoration: const InputDecoration(labelText: 'Currency'),
                 dropdownColor: AppColors.surface,
                 style: const TextStyle(color: AppColors.textPrimary),
@@ -169,7 +174,6 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
                 },
               ),
               const SizedBox(height: 20),
-
               TextFormField(
                 controller: _balanceController,
                 style: const TextStyle(color: AppColors.textPrimary),
@@ -191,7 +195,6 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
                 },
               ),
               const SizedBox(height: 16),
-
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 title: Text(
@@ -208,10 +211,9 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
                 ),
                 value: _isPrimary,
                 onChanged: (v) => setState(() => _isPrimary = v),
-                activeColor: AppColors.accent,
+                activeThumbColor: AppColors.accent,
               ),
               const SizedBox(height: 24),
-
               SizedBox(
                 width: double.infinity,
                 height: 52,

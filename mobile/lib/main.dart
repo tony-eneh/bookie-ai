@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:bookie_ai/app.dart';
@@ -7,6 +8,12 @@ import 'package:bookie_ai/data/services/storage_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  try {
+    await dotenv.load(fileName: 'assets/env/.env');
+  } catch (_) {
+    // Local env file is optional; fall back to defaults and dart-defines.
+  }
 
   await Hive.initFlutter();
 

@@ -110,7 +110,6 @@ class _CreateBudgetSheetState extends ConsumerState<CreateBudgetSheet> {
                 ),
               ),
               const SizedBox(height: 24),
-
               TextFormField(
                 controller: _nameController,
                 style: const TextStyle(color: AppColors.textPrimary),
@@ -123,7 +122,6 @@ class _CreateBudgetSheetState extends ConsumerState<CreateBudgetSheet> {
                 textCapitalization: TextCapitalization.words,
               ),
               const SizedBox(height: 20),
-
               Text(
                 'Category',
                 style: textTheme.titleSmall?.copyWith(
@@ -142,12 +140,10 @@ class _CreateBudgetSheetState extends ConsumerState<CreateBudgetSheet> {
                 data: (categories) => _CategorySelector(
                   categories: categories,
                   selectedId: _selectedCategoryId,
-                  onSelected: (id) =>
-                      setState(() => _selectedCategoryId = id),
+                  onSelected: (id) => setState(() => _selectedCategoryId = id),
                 ),
               ),
               const SizedBox(height: 20),
-
               Text(
                 'Period',
                 style: textTheme.titleSmall?.copyWith(
@@ -163,10 +159,8 @@ class _CreateBudgetSheetState extends ConsumerState<CreateBudgetSheet> {
                     child: ChoiceChip(
                       label: Text(type),
                       selected: selected,
-                      onSelected: (_) =>
-                          setState(() => _periodType = type),
-                      selectedColor:
-                          AppColors.accent.withValues(alpha: 0.2),
+                      onSelected: (_) => setState(() => _periodType = type),
+                      selectedColor: AppColors.accent.withValues(alpha: 0.2),
                       backgroundColor: AppColors.surface,
                       labelStyle: TextStyle(
                         color: selected
@@ -189,9 +183,8 @@ class _CreateBudgetSheetState extends ConsumerState<CreateBudgetSheet> {
                 }).toList(),
               ),
               const SizedBox(height: 20),
-
               DropdownButtonFormField<String>(
-                value: _selectedCurrency,
+                initialValue: _selectedCurrency,
                 decoration: const InputDecoration(labelText: 'Currency'),
                 dropdownColor: AppColors.surface,
                 style: const TextStyle(color: AppColors.textPrimary),
@@ -207,7 +200,6 @@ class _CreateBudgetSheetState extends ConsumerState<CreateBudgetSheet> {
                 },
               ),
               const SizedBox(height: 20),
-
               TextFormField(
                 controller: _amountController,
                 style: const TextStyle(color: AppColors.textPrimary),
@@ -215,8 +207,7 @@ class _CreateBudgetSheetState extends ConsumerState<CreateBudgetSheet> {
                   labelText: 'Budget Amount',
                   prefixText:
                       '${AppConstants.currencySymbols[_selectedCurrency] ?? _selectedCurrency} ',
-                  prefixStyle:
-                      const TextStyle(color: AppColors.textSecondary),
+                  prefixStyle: const TextStyle(color: AppColors.textSecondary),
                 ),
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
@@ -233,14 +224,12 @@ class _CreateBudgetSheetState extends ConsumerState<CreateBudgetSheet> {
                 },
               ),
               const SizedBox(height: 20),
-
               GestureDetector(
                 onTap: _pickStartDate,
                 child: InputDecorator(
                   decoration: const InputDecoration(
                     labelText: 'Start Date',
-                    suffixIcon:
-                        Icon(Icons.calendar_today, size: 18),
+                    suffixIcon: Icon(Icons.calendar_today, size: 18),
                   ),
                   child: Text(
                     DateFormatter.fullDate(_startDate),
@@ -249,7 +238,6 @@ class _CreateBudgetSheetState extends ConsumerState<CreateBudgetSheet> {
                 ),
               ),
               const SizedBox(height: 24),
-
               SizedBox(
                 width: double.infinity,
                 height: 52,
@@ -308,13 +296,11 @@ class _CategorySelector extends StatelessWidget {
         return ChoiceChip(
           label: Text('${cat.icon} ${cat.name}'),
           selected: selected,
-          onSelected: (_) =>
-              onSelected(selected ? null : cat.id),
+          onSelected: (_) => onSelected(selected ? null : cat.id),
           selectedColor: AppColors.accent.withValues(alpha: 0.2),
           backgroundColor: AppColors.surface,
           labelStyle: TextStyle(
-            color:
-                selected ? AppColors.accent : AppColors.textSecondary,
+            color: selected ? AppColors.accent : AppColors.textSecondary,
             fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
             fontSize: 13,
           ),
