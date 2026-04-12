@@ -4,7 +4,7 @@ import {
   ArrayMinSize,
   IsArray,
   IsDateString,
-  IsEnum,
+  IsIn,
   IsNumber,
   IsOptional,
   IsString,
@@ -14,9 +14,19 @@ import {
 } from 'class-validator';
 import { TransactionType } from '@prisma/client';
 
+const supportedStatementImportTransactionTypes = [
+  TransactionType.INCOME,
+  TransactionType.EXPENSE,
+] as const;
+
 class StatementImportTransactionDto {
-  @ApiProperty({ enum: TransactionType, example: TransactionType.EXPENSE })
-  @IsEnum(TransactionType)
+  @ApiProperty({
+    enum: supportedStatementImportTransactionTypes,
+    example: TransactionType.EXPENSE,
+  })
+  @IsIn(supportedStatementImportTransactionTypes, {
+    message: 'Statement imports currently support only INCOME and EXPENSE transactions',
+  })
   type: TransactionType;
 
   @ApiProperty({ example: 125.5 })

@@ -1,5 +1,10 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { Prisma, TransactionType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateStatementImportDto } from './dto/create-statement-import.dto.js';
 
@@ -105,11 +110,16 @@ export class StatementImportsService {
     });
   }
 
-  private getBalanceDelta(type: string, amount: number) {
-    if (type === 'INCOME') {
-      return amount;
+  private getBalanceDelta(type: TransactionType, amount: number) {
+    switch (type) {
+      case TransactionType.INCOME:
+        return amount;
+      case TransactionType.EXPENSE:
+        return -amount;
+      default:
+        throw new BadRequestException(
+          `Statement imports do not support ${type} transactions yet`,
+        );
     }
-
-    return -amount;
   }
 }
