@@ -16,6 +16,9 @@ async function bootstrap() {
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
+  const corsMode =
+    (configService.get<string>('CORS_MODE') ?? 'strict').toLowerCase();
+  const isPermissiveCors = corsMode === 'permissive';
   const corsCredentials =
     (configService.get<string>('CORS_CREDENTIALS') ?? 'false').toLowerCase() ===
     'true';
@@ -25,6 +28,11 @@ async function bootstrap() {
       origin: string | undefined,
       callback: (error: Error | null, allow?: boolean) => void,
     ) => {
+      if (isPermissiveCors) {
+        callback(null, true);
+        return;
+      }
+
       if (!origin || corsOrigins.includes(origin)) {
         callback(null, true);
         return;

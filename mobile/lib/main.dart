@@ -9,11 +9,11 @@ import 'package:bookie_ai/data/services/storage_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  try {
-    await dotenv.load(fileName: 'assets/env/.env');
-  } catch (_) {
-    // Local env file is optional; fall back to defaults and dart-defines.
-  }
+  // Local env file is optional; fall back to defaults and dart-defines.
+  await dotenv.load(
+    fileName: 'assets/env/.env',
+    isOptional: true,
+  );
 
   await Hive.initFlutter();
 
