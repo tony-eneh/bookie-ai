@@ -2,8 +2,15 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 abstract final class ApiConstants {
-  static const String defaultBaseUrl =
-      'https://server-snowy-nine-48.vercel.app/api';
+  static const String defaultBaseUrl = 'https://bookie-ai-api.vercel.app/api';
+
+  static String? _dotenvValue(String key) {
+    if (!dotenv.isInitialized) {
+      return null;
+    }
+
+    return dotenv.env[key];
+  }
 
   static String get baseUrl {
     const genericOverride = String.fromEnvironment(
@@ -16,7 +23,7 @@ abstract final class ApiConstants {
     }
 
     if (kIsWeb) {
-      return dotenv.env['API_BASE_URL'] ?? defaultBaseUrl;
+      return _dotenvValue('API_BASE_URL') ?? defaultBaseUrl;
     }
 
     if (defaultTargetPlatform == TargetPlatform.android) {
@@ -29,12 +36,12 @@ abstract final class ApiConstants {
         return androidOverride;
       }
 
-      return dotenv.env['API_BASE_URL_ANDROID'] ??
-          dotenv.env['API_BASE_URL'] ??
+      return _dotenvValue('API_BASE_URL_ANDROID') ??
+          _dotenvValue('API_BASE_URL') ??
           defaultBaseUrl;
     }
 
-    return dotenv.env['API_BASE_URL'] ?? defaultBaseUrl;
+    return _dotenvValue('API_BASE_URL') ?? defaultBaseUrl;
   }
 
   // Auth
