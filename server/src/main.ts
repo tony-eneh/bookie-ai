@@ -37,7 +37,7 @@ async function bootstrap() {
     credentials: corsCredentials,
   });
 
-  app.setGlobalPrefix('api');
+  app.setGlobalPrefix(apiPrefix);
 
   app.useGlobalPipes(
     new ValidationPipe({
@@ -56,7 +56,15 @@ async function bootstrap() {
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup(`${apiPrefix}/docs`, app, document);
+  SwaggerModule.setup('docs', app, document, {
+    useGlobalPrefix: true,
+    customCssUrl:
+      'https://unpkg.com/swagger-ui-dist@5/swagger-ui.css',
+    customJs: [
+      'https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js',
+      'https://unpkg.com/swagger-ui-dist@5/swagger-ui-standalone-preset.js',
+    ],
+  });
 
   const port = configService.get<number>('PORT', 3000);
 
