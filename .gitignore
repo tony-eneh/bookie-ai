@@ -2,3 +2,4 @@ mobile/.dart_tool/
 mobile/.flutter-plugins-dependencies
 .vercel
 .env*.local
+.cloudflare/

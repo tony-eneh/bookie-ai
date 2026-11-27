@@ -1,4 +1,4 @@
-package com.example.bookie_ai
+package com.bookieai.app
 
 import io.flutter.embedding.android.FlutterActivity
 

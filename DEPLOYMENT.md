@@ -90,3 +90,38 @@ curl -sS https://server-snowy-nine-48.vercel.app/api/auth/login \
 curl -sS https://server-snowy-nine-48.vercel.app/api/auth/me \
   -H "authorization: Bearer <ACCESS_TOKEN>"
 ```
+
+## Landing page (`landing/`)
+Live at https://bookie-ai.joypinness.com (Vercel project `bookie-ai-landing`,
+scope `tonyenehs-projects`; DNS is on Vercel). Static HTML/CSS, no build step.
+Redeploy with `cd landing && vercel deploy --prod`. The Android download link
+and its version/size label come from `landing/config.js`; while `apkUrl` is
+empty the download buttons just scroll to the download section.
+
+## Mobile (Android APK)
+- **App id:** `com.bookieai.app` (min Android 7.0 / SDK 24)
+- **Signing:** `mobile/android/key.properties` (git-ignored) points at the
+  release keystore in `C:\Users\Tony\.bookie-ai\`. Never regenerate the
+  keystore: installed copies could no longer be updated. Without
+  `key.properties` the release build falls back to debug keys.
+- **Hosting:** Cloudflare R2 bucket `bookie-ai-downloads`, public at
+  https://pub-fa2f8e40c1954bbea40f3453e8864645.r2.dev/bookie-ai.apk (plus a
+  versioned copy, e.g. `bookie-ai-1.0.0.apk`; the bucket holds
+  APKs only).
+
+Each release: bump `version` in `mobile/pubspec.yaml`, then
+
+```bash
+cd mobile
+flutter build apk --release --target-platform android-arm,android-arm64
+APK=build/app/outputs/flutter-apk/app-release.apk
+cf r2 buckets objects upload bookie-ai.apk --bucket-name bookie-ai-downloads \
+  --file $APK --content-type application/vnd.android.package-archive
+cf r2 buckets objects upload bookie-ai-<version>.apk --bucket-name bookie-ai-downloads \
+  --file $APK --content-type application/vnd.android.package-archive
+```
+
+The release APK is ARM only (real phones). To test on an x86_64 emulator,
+build separately with `--target-platform android-x64`, which overwrites
+`app-release.apk`, so upload first. Then update `version` and `size` in
+`landing/config.js` and redeploy the landing page.
