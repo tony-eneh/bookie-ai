@@ -39,6 +39,9 @@ Optional:
 - `FX_API_URL`: exchange rate source.
 - `CORS_MODE`, `CORS_ORIGINS`, `CORS_CREDENTIALS`: see `server/src/main.ts`.
 - `RESET_PASSWORD_EXPIRATION_MINUTES`.
+- `TOKEN_ENCRYPTION_KEY`: optional 32-byte base64 key for encrypting stored
+  OAuth tokens (connected accounts). Defaults to a key derived from
+  `JWT_SECRET`; changing either makes stored tokens unreadable.
 
 ## Quick verification
 ```bash
