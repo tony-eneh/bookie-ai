@@ -123,8 +123,8 @@
       <ol class="steps">
         <li>
           <span class="step-n">01</span>
-          <h3>Log it in seconds</h3>
-          <p>A couple of taps puts a transaction on the right account, in the right currency and category.</p>
+          <h3>Log it, or let Bookie</h3>
+          <p>Turn on bank alert reading and transactions add themselves. Or just say "spent 4,500 on lunch" and it lands in the right place.</p>
         </li>
         <li>
           <span class="step-n">02</span>
@@ -150,7 +150,7 @@
         <article class="card card-wide card-assistant">
           <div class="card-copy">
             <h3>An assistant, not a ledger</h3>
-            <p>Chat with Bookie about spending, goals and plans. It can explain a number, categorize a transaction or run a what-if for you.</p>
+            <p>Chat or talk to Bookie about spending, goals and plans. It can explain a number, categorize a transaction or run a what-if for you.</p>
           </div>
           <div class="chat">
             <div class="msg me">How much did I spend on food this month?</div>
@@ -195,6 +195,24 @@
           <h3>What-if scenarios</h3>
           <p>Earn more, spend less, move a deadline. See the effect on every goal before you commit.</p>
         </article>
+
+        <article class="card">
+          <div class="icon">📩</div>
+          <h3>Reads your bank alerts</h3>
+          <p>On Android, switch on SMS reading and debit and credit alerts become transactions. OTPs and promos are ignored.</p>
+        </article>
+
+        <article class="card">
+          <div class="icon">🎙️</div>
+          <h3>Talk to Bookie</h3>
+          <p>Tap the mic and ask out loud, or tell it what you spent. It answers back.</p>
+        </article>
+
+        <article class="card">
+          <div class="icon">🧠</div>
+          <h3>Learns your habits</h3>
+          <p>Tell Bookie once that Spar is groceries and it remembers. It also spots your subscriptions and other repeat payments.</p>
+        </article>
       </div>
     </section>
 
@@ -216,11 +234,9 @@
         <p>This is an early access build. Here's what we're bringing next.</p>
       </div>
       <div class="roadmap">
-        <div class="road"><span class="road-tag">Next</span><h3>Automatic SMS detection</h3><p>Bank alerts on Android turn into transactions on their own.</p></div>
-        <div class="road"><span class="road-tag">Next</span><h3>Email receipts &amp; statements</h3><p>Connect an inbox and let alerts, receipts and statements flow in.</p></div>
-        <div class="road"><span class="road-tag">Next</span><h3>Talk to Bookie</h3><p>Full voice conversations: ask out loud, hear the answer back.</p></div>
-        <div class="road"><span class="road-tag">Later</span><h3>Learns your habits</h3><p>Every answer you give makes the next guess smarter.</p></div>
-        <div class="road"><span class="road-tag">Later</span><h3>Smart nudges</h3><p>Weekly summaries, budget warnings and goal alerts, right on time.</p></div>
+        <div class="road"><span class="road-tag">Next</span><h3>Email receipts &amp; alerts</h3><p>Connect an inbox and let bank emails and receipts flow in. (Statement CSVs already work.)</p></div>
+        <div class="road"><span class="road-tag">Next</span><h3>Push notifications</h3><p>Budget warnings and Bookie's questions on your lock screen, not just in the app.</p></div>
+        <div class="road"><span class="road-tag">Later</span><h3>iPhone app</h3><p>BookieAI on iOS, with email and voice in place of SMS reading.</p></div>
       </div>
     </section>
 
@@ -234,7 +250,7 @@
         </div>
         <ul class="checks">
           <li>Sensitive tokens are encrypted</li>
-          <li>Minimal raw message storage</li>
+          <li>SMS reading is opt-in; only bank alerts are sent</li>
           <li>Export your data whenever you like</li>
           <li>Delete everything with one action</li>
         </ul>
