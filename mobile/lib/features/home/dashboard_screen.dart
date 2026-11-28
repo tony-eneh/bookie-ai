@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:bookie_ai/core/theme/app_colors.dart';
 import 'package:bookie_ai/data/providers/auth_provider.dart';
 import 'package:bookie_ai/data/providers/dashboard_provider.dart';
+import 'package:bookie_ai/data/providers/notifications_provider.dart';
 import 'package:bookie_ai/data/models/insight_model.dart';
 import 'package:bookie_ai/widgets/shimmer_loading.dart';
 import 'package:bookie_ai/features/home/widgets/balance_card.dart';
@@ -63,7 +64,6 @@ class _DashboardContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       children: [
@@ -97,7 +97,7 @@ class _DashboardContent extends StatelessWidget {
           onVoiceLog: () => context.go('/assistant'),
           onAddManual: () => context.push('/transactions'),
           onPayGoal: () => context.push('/goals'),
-          onViewInsights: () {},
+          onViewInsights: () => context.push('/insights'),
         ),
         const SizedBox(height: 28),
 
@@ -213,13 +213,18 @@ class _AppBarRow extends StatelessWidget {
   }
 }
 
-class _NotificationBell extends StatelessWidget {
+class _NotificationBell extends ConsumerWidget {
   const _NotificationBell();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final unread = ref.watch(unreadNotificationsProvider).valueOrNull ?? 0;
     return IconButton(
-      onPressed: () {},
+      tooltip: 'Notifications',
+      onPressed: () async {
+        await context.push('/notifications');
+        ref.invalidate(unreadNotificationsProvider);
+      },
       icon: Stack(
         clipBehavior: Clip.none,
         children: [
@@ -228,19 +233,20 @@ class _NotificationBell extends StatelessWidget {
             color: AppColors.textPrimary,
             size: 26,
           ),
-          Positioned(
-            top: -2,
-            right: -2,
-            child: Container(
-              width: 10,
-              height: 10,
-              decoration: BoxDecoration(
-                color: AppColors.expense,
-                shape: BoxShape.circle,
-                border: Border.all(color: AppColors.primary, width: 1.5),
+          if (unread > 0)
+            Positioned(
+              top: -2,
+              right: -2,
+              child: Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  color: AppColors.expense,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.primary, width: 1.5),
+                ),
               ),
             ),
-          ),
         ],
       ),
     );
