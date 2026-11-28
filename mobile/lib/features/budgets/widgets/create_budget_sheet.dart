@@ -1,3 +1,4 @@
+import 'package:bookie_ai/data/services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -62,7 +63,7 @@ class _CreateBudgetSheetState extends ConsumerState<CreateBudgetSheet> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to create budget: $e'),
+            content: Text('Failed to create budget: ${friendlyError(e)}'),
             backgroundColor: AppColors.expense,
           ),
         );

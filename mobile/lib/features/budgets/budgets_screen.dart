@@ -1,3 +1,4 @@
+import 'package:bookie_ai/data/services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bookie_ai/core/theme/app_colors.dart';
@@ -21,7 +22,7 @@ class BudgetsScreen extends ConsumerWidget {
             child: _BudgetsShimmer(),
           ),
           error: (error, _) => _ErrorView(
-            message: error.toString(),
+            message: friendlyError(error),
             onRetry: () =>
                 ref.read(budgetsProvider.notifier).fetchBudgets(),
           ),

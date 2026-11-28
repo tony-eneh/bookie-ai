@@ -1,3 +1,4 @@
+import 'package:bookie_ai/data/services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bookie_ai/core/theme/app_colors.dart';
@@ -48,7 +49,7 @@ class _CreateGoalSheetState extends ConsumerState<CreateGoalSheet> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to create goal: $e')),
+          SnackBar(content: Text('Failed to create goal: ${friendlyError(e)}')),
         );
       }
     } finally {

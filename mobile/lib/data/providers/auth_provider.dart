@@ -1,3 +1,4 @@
+import 'package:bookie_ai/data/services/api_service.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bookie_ai/data/models/user_model.dart';
@@ -74,7 +75,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     } on DioException catch (e) {
       state = state.copyWith(
         status: AuthStatus.error,
-        error: e.error?.toString() ?? 'Login failed',
+        error: friendlyError(e),
       );
     }
   }
@@ -92,7 +93,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     } on DioException catch (e) {
       state = state.copyWith(
         status: AuthStatus.error,
-        error: e.error?.toString() ?? 'Registration failed',
+        error: friendlyError(e),
       );
     }
   }

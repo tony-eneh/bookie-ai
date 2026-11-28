@@ -1,3 +1,4 @@
+import 'package:bookie_ai/data/services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bookie_ai/core/theme/app_colors.dart';
@@ -194,7 +195,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                   child: _TransactionsShimmer(),
                 ),
                 error: (error, _) => _ErrorView(
-                  message: error.toString(),
+                  message: friendlyError(error),
                   onRetry: () => ref
                       .read(transactionsProvider.notifier)
                       .fetchTransactions(),

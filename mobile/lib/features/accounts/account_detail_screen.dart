@@ -1,3 +1,4 @@
+import 'package:bookie_ai/data/services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -560,7 +561,7 @@ class _ReconcileSheetState extends ConsumerState<_ReconcileSheet> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Reconciliation failed: $e'),
+            content: Text('Reconciliation failed: ${friendlyError(e)}'),
             backgroundColor: AppColors.expense,
           ),
         );

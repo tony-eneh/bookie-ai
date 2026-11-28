@@ -202,11 +202,9 @@ class ApiService {
   }
 
   String _extractErrorMessage(DioException error) {
-    if (error.response?.data is Map<String, dynamic>) {
-      final data = error.response!.data as Map<String, dynamic>;
-      return data['error'] as String? ??
-          data['message'] as String? ??
-          'An unexpected error occurred';
+    final serverMessage = serverErrorMessage(error.response?.data);
+    if (serverMessage != null) {
+      return serverMessage;
     }
 
     final androidLocalDevHint = _androidLocalDevHint(error.type);
@@ -253,4 +251,38 @@ class ApiService {
 
     return null;
   }
+}
+
+/// Reads the human-readable message from a NestJS error body
+/// (`{statusCode, message, error}`). `message` is the useful part: `error` is
+/// only the HTTP status name, e.g. "Unauthorized". Validation errors send
+/// `message` as a list, which is joined.
+@visibleForTesting
+String? serverErrorMessage(Object? body) {
+  if (body is! Map) return null;
+  final message = body['message'];
+  if (message is String && message.trim().isNotEmpty) return message;
+  if (message is List && message.isNotEmpty) {
+    return message.map((m) => _sentenceCase(m.toString())).join('\n');
+  }
+  final error = body['error'];
+  if (error is String && error.trim().isNotEmpty) return error;
+  return null;
+}
+
+String _sentenceCase(String s) =>
+    s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
+
+/// A message suitable for showing to the user for any error thrown by an API
+/// call (or anything else).
+String friendlyError(Object error) {
+  if (error is DioException) {
+    final inner = error.error;
+    if (inner is String && inner.isNotEmpty) return inner;
+    return serverErrorMessage(error.response?.data) ??
+        error.message ??
+        'Something went wrong. Please try again.';
+  }
+  final text = error.toString();
+  return text.startsWith('Exception: ') ? text.substring(11) : text;
 }

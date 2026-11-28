@@ -1,3 +1,4 @@
+import 'package:bookie_ai/data/services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -104,7 +105,7 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to add transaction: $e'),
+            content: Text('Failed to add transaction: ${friendlyError(e)}'),
             backgroundColor: AppColors.expense,
           ),
         );

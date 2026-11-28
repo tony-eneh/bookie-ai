@@ -1,3 +1,4 @@
+import 'package:bookie_ai/data/services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -23,7 +24,7 @@ class AccountsScreen extends ConsumerWidget {
             child: _AccountsShimmer(),
           ),
           error: (error, _) => _ErrorView(
-            message: error.toString(),
+            message: friendlyError(error),
             onRetry: () => ref.read(accountsProvider.notifier).fetchAccounts(),
           ),
           data: (accounts) => RefreshIndicator(

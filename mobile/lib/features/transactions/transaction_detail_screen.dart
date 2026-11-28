@@ -1,3 +1,4 @@
+import 'package:bookie_ai/data/services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -288,7 +289,7 @@ class _TransactionDetailView extends ConsumerWidget {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Failed to delete: $e'),
+              content: Text('Failed to delete: ${friendlyError(e)}'),
               backgroundColor: AppColors.expense,
             ),
           );
