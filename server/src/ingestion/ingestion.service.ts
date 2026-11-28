@@ -10,6 +10,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { AiService } from '../ai/ai.service.js';
 import { FxRatesService } from '../fx-rates/fx-rates.service.js';
 import { MerchantAliasService } from '../learning/merchant-alias.service.js';
+import { RecurringService } from '../learning/recurring.service.js';
 import { ParseSmsDto } from './dto/parse-sms.dto.js';
 import { ParseEmailDto } from './dto/parse-email.dto.js';
 import { VoiceLogDto } from './dto/voice-log.dto.js';
@@ -29,6 +30,7 @@ export class IngestionService {
     private aiService: AiService,
     private fxRates: FxRatesService,
     private aliases: MerchantAliasService,
+    private recurring: RecurringService,
   ) {}
 
   async parseSms(userId: string, dto: ParseSmsDto) {
@@ -175,7 +177,7 @@ export class IngestionService {
         })
       : null;
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const updated = await tx.account.update({
         where: { id: account.id },
         data: { currentBalance: { increment: new Prisma.Decimal(delta.toFixed(4)) } },
@@ -216,6 +218,10 @@ export class IngestionService {
         : null;
       return { transaction, clarification, duplicate: false };
     });
+    if (await this.recurring.detect(result.transaction)) {
+      result.transaction.isRecurringGuess = true;
+    }
+    return result;
   }
 
   /** Stable id for a message, ignoring case and whitespace differences. */

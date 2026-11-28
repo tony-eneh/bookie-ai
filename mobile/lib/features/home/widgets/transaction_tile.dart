@@ -60,13 +60,28 @@ class TransactionTile extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 2),
-                  Text(
-                    transaction.category?.name ?? transaction.subcategory ?? '',
-                    style: textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  Row(
+                    children: [
+                      if (transaction.isRecurring) ...[
+                        const Icon(Icons.repeat,
+                            size: 13, color: AppColors.info),
+                        const SizedBox(width: 4),
+                      ],
+                      Flexible(
+                        child: Text(
+                          [
+                            transaction.category?.name ??
+                                transaction.subcategory,
+                            if (transaction.isRecurring) 'Recurring',
+                          ].whereType<String>().join(' · '),
+                          style: textTheme.bodySmall?.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

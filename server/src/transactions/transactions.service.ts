@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { MerchantAliasService } from '../learning/merchant-alias.service.js';
+import { RecurringService } from '../learning/recurring.service.js';
 import { CreateTransactionDto } from './dto/create-transaction.dto.js';
 import { UpdateTransactionDto } from './dto/update-transaction.dto.js';
 import { TransactionFilterDto } from './dto/transaction-filter.dto.js';
@@ -11,6 +12,7 @@ export class TransactionsService {
   constructor(
     private prisma: PrismaService,
     private aliases: MerchantAliasService,
+    private recurring: RecurringService,
   ) {}
 
   /** Rejects categories that are neither the user's own nor built-in. */
@@ -28,7 +30,7 @@ export class TransactionsService {
       (dto.parseConfidence !== undefined && dto.parseConfidence < 0.7) ||
       (dto.categoryConfidence !== undefined && dto.categoryConfidence < 0.7);
 
-    return this.prisma.$transaction(async (tx) => {
+    const created = await this.prisma.$transaction(async (tx) => {
       const account = await tx.account.findUnique({
         where: { id: dto.accountId },
       });
@@ -71,6 +73,8 @@ export class TransactionsService {
         },
       });
     });
+    if (await this.recurring.detect(created)) created.isRecurringGuess = true;
+    return created;
   }
 
   async findAll(userId: string, filters: TransactionFilterDto) {
