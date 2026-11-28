@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { MerchantAliasService } from '../learning/merchant-alias.service.js';
 import { CreateTransactionDto } from './dto/create-transaction.dto.js';
 import { UpdateTransactionDto } from './dto/update-transaction.dto.js';
 import { TransactionFilterDto } from './dto/transaction-filter.dto.js';
@@ -7,9 +8,22 @@ import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class TransactionsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private aliases: MerchantAliasService,
+  ) {}
+
+  /** Rejects categories that are neither the user's own nor built-in. */
+  private async assertCategoryUsable(userId: string, categoryId?: string | null) {
+    if (!categoryId) return;
+    const ok = await this.prisma.category.count({
+      where: { id: categoryId, OR: [{ userId }, { isDefault: true }] },
+    });
+    if (!ok) throw new NotFoundException('Category not found');
+  }
 
   async create(userId: string, dto: CreateTransactionDto) {
+    await this.assertCategoryUsable(userId, dto.categoryId);
     const needsClarification =
       (dto.parseConfidence !== undefined && dto.parseConfidence < 0.7) ||
       (dto.categoryConfidence !== undefined && dto.categoryConfidence < 0.7);
@@ -127,7 +141,8 @@ export class TransactionsService {
   }
 
   async update(id: string, userId: string, dto: UpdateTransactionDto) {
-    return this.prisma.$transaction(async (tx) => {
+    await this.assertCategoryUsable(userId, dto.categoryId);
+    const updated = await this.prisma.$transaction(async (tx) => {
       const existing = await tx.transaction.findUnique({
         where: { id },
         include: { category: true, account: true },
@@ -184,6 +199,16 @@ export class TransactionsService {
         include: { category: true, account: true },
       });
     });
+
+    if (dto.categoryId) {
+      await this.aliases.learn(
+        userId,
+        updated.merchantName,
+        dto.categoryId,
+        updated.type,
+      );
+    }
+    return updated;
   }
 
   async delete(id: string, userId: string) {

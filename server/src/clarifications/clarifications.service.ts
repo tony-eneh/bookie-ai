@@ -1,12 +1,16 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { MerchantAliasService } from '../learning/merchant-alias.service.js';
 import { RespondClarificationDto } from './dto/respond-clarification.dto.js';
 import type { ClarificationItemStatus } from '@prisma/client';
 
 @Injectable()
 export class ClarificationsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private aliases: MerchantAliasService,
+  ) {}
 
   async create(userId: string, transactionId: string, questionText: string) {
     const transaction = await this.prisma.transaction.findUnique({
@@ -64,7 +68,7 @@ export class ClarificationsService {
   }
 
   async respond(id: string, userId: string, dto: RespondClarificationDto) {
-    return this.prisma.$transaction(async (tx) => {
+    const answered = await this.prisma.$transaction(async (tx) => {
       const clarification = await tx.clarification.findUnique({
         where: { id },
         include: { transaction: true },
@@ -140,6 +144,17 @@ export class ClarificationsService {
         include: { transaction: true },
       });
     });
+
+    // Remember the merchant's category so Bookie doesn't ask next time.
+    if (dto.categoryId && answered?.transaction) {
+      await this.aliases.learn(
+        userId,
+        answered.transaction.merchantName,
+        dto.categoryId,
+        answered.transaction.type,
+      );
+    }
+    return answered;
   }
 
   async dismiss(id: string, userId: string) {
