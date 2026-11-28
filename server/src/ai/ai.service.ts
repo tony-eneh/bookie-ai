@@ -354,15 +354,26 @@ User data: ${JSON.stringify(userData)}
     defaultCurrency: string,
   ): ParsedTransaction {
     const lower = rawText.toLowerCase();
-    // "4,500.00", "20k", "1.5m"
-    const amountMatch = rawText.match(/(\d[\d,]*(?:\.\d+)?)\s*(k|m)?\b/i);
+    // Prefer a number next to a currency ("NGN 6,800.00", "4,500 KRW"),
+    // never masked digits like "Acct ***4521"; then any number ("20k").
+    const unmasked = rawText.replace(/[*xX#]+\d+/g, ' ');
+    const currencyAmount =
+      unmasked.match(
+        /(?:\b(?:NGN|USD|EUR|GBP|KRW|KES|GHS|ZAR|CAD|AUD|JPY|INR|CNY)|[₦$₩€£])\s?(\d[\d,]*(?:\.\d+)?)/i,
+      ) ??
+      unmasked.match(
+        /(\d[\d,]*(?:\.\d+)?)\s?(?:NGN|USD|EUR|GBP|KRW|KES|GHS|ZAR|naira|dollars?)\b/i,
+      );
+    const amountMatch = currencyAmount
+      ? [currencyAmount[0], currencyAmount[1], undefined]
+      : unmasked.match(/(\d[\d,]*(?:\.\d+)?)\s*(k|m)?\b/i);
     const multiplier =
       amountMatch?.[2]?.toLowerCase() === 'k'
         ? 1_000
         : amountMatch?.[2]?.toLowerCase() === 'm'
           ? 1_000_000
           : 1;
-    const amount = amountMatch
+    const amount = amountMatch?.[1]
       ? parseFloat(amountMatch[1].replace(/,/g, '')) * multiplier
       : 0;
 

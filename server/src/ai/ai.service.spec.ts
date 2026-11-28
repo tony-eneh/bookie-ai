@@ -78,6 +78,14 @@ describe('AiService in mock mode', () => {
     expect(parsed.ambiguityFlags).toContain('AMOUNT_UNCLEAR');
   });
 
+  it('ignores masked account numbers', async () => {
+    const parsed = await ai.parseTransaction(
+      'Acct ***4521 Debited NGN 6,800.00 POS purchase at SPAR LEKKI',
+      { defaultCurrency: 'NGN' },
+    );
+    expect(parsed.amount).toBe(6800);
+  });
+
   it('understands k and m shorthand', async () => {
     const parsed = await ai.parseTransaction('paid 20k for fuel', {
       defaultCurrency: 'NGN',

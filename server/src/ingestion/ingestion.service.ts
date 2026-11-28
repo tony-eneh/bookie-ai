@@ -180,6 +180,16 @@ export class IngestionService {
       : null;
 
     const result = await this.prisma.$transaction(async (tx) => {
+      // Concurrent requests for the same message (e.g. two scans racing)
+      // serialize here; the loser finds the winner's row.
+      if (sourceType !== 'VOICE') {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${userId + sourceRef}))`;
+        const seen = await tx.transaction.findFirst({
+          where: { userId, sourceRef },
+          include: { category: true, account: true },
+        });
+        if (seen) return { transaction: seen, clarification: null, duplicate: true };
+      }
       const updated = await tx.account.update({
         where: { id: account.id },
         data: { currentBalance: { increment: new Prisma.Decimal(delta.toFixed(4)) } },
@@ -220,6 +230,7 @@ export class IngestionService {
         : null;
       return { transaction, clarification, duplicate: false };
     });
+    if (result.duplicate) return result;
     if (await this.recurring.detect(result.transaction)) {
       result.transaction.isRecurringGuess = true;
     }
