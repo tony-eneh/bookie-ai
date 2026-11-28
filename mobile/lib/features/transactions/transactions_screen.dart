@@ -1,5 +1,9 @@
+import 'dart:async';
+
 import 'package:bookie_ai/data/services/api_service.dart';
 import 'package:flutter/material.dart';
+import 'package:bookie_ai/data/providers/accounts_provider.dart';
+import 'package:bookie_ai/data/providers/categories_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bookie_ai/core/theme/app_colors.dart';
 import 'package:bookie_ai/core/utils/date_formatter.dart';
@@ -22,6 +26,9 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
 
   String _activeFilter = 'All';
   String _searchQuery = '';
+  String? _accountId;
+  String? _categoryId;
+  Timer? _searchDebounce;
 
   static const _filters = [
     'All',
@@ -39,6 +46,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
@@ -53,29 +61,136 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
 
   void _applyFilter(String filter) {
     setState(() => _activeFilter = filter);
+    _reload();
+  }
 
-    TransactionFilters filters;
+  /// Rebuilds the server query from the chip, search box and filter sheet.
+  void _reload() {
     final now = DateTime.now();
-
-    switch (filter) {
-      case 'Income':
-        filters = const TransactionFilters(type: 'INCOME');
-      case 'Expense':
-        filters = const TransactionFilters(type: 'EXPENSE');
-      case 'This Week':
-        final weekStart = now.subtract(Duration(days: now.weekday - 1));
-        filters = TransactionFilters(
-          startDate: DateTime(weekStart.year, weekStart.month, weekStart.day),
-        );
-      case 'This Month':
-        filters = TransactionFilters(
-          startDate: DateTime(now.year, now.month, 1),
-        );
-      default:
-        filters = const TransactionFilters();
-    }
-
+    final weekStart = now.subtract(Duration(days: now.weekday - 1));
+    final filters = TransactionFilters(
+      type: switch (_activeFilter) {
+        'Income' => 'INCOME',
+        'Expense' => 'EXPENSE',
+        _ => null,
+      },
+      startDate: switch (_activeFilter) {
+        'This Week' => DateTime(weekStart.year, weekStart.month, weekStart.day),
+        'This Month' => DateTime(now.year, now.month, 1),
+        _ => null,
+      },
+      accountId: _accountId,
+      categoryId: _categoryId,
+      search: _searchQuery.isEmpty ? null : _searchQuery,
+    );
     ref.read(transactionsProvider.notifier).fetchTransactions(filters: filters);
+  }
+
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 400), () {
+      final q = value.trim();
+      if (q == _searchQuery) return;
+      setState(() => _searchQuery = q);
+      _reload();
+    });
+  }
+
+  int get _sheetFilterCount =>
+      (_accountId != null ? 1 : 0) + (_categoryId != null ? 1 : 0);
+
+  Future<void> _showFilterSheet() async {
+    String? accountId = _accountId;
+    String? categoryId = _categoryId;
+    final apply = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) {
+          final accounts = ref.watch(accountsProvider).valueOrNull ?? const [];
+          final categories =
+              ref.watch(categoriesProvider).valueOrNull ?? const [];
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'Filter transactions',
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String?>(
+                  initialValue: accountId,
+                  dropdownColor: AppColors.surface,
+                  decoration: const InputDecoration(labelText: 'Account'),
+                  items: [
+                    const DropdownMenuItem(
+                        value: null, child: Text('All accounts')),
+                    for (final a in accounts)
+                      DropdownMenuItem(value: a.id, child: Text(a.name)),
+                  ],
+                  onChanged: (v) => setSheet(() => accountId = v),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String?>(
+                  initialValue: categoryId,
+                  dropdownColor: AppColors.surface,
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: 'Category'),
+                  items: [
+                    const DropdownMenuItem(
+                        value: null, child: Text('All categories')),
+                    for (final c in categories)
+                      DropdownMenuItem(
+                        value: c.id,
+                        child: Text('${c.icon}  ${c.name}'),
+                      ),
+                  ],
+                  onChanged: (v) => setSheet(() => categoryId = v),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () {
+                          accountId = null;
+                          categoryId = null;
+                          Navigator.pop(ctx, true);
+                        },
+                        child: const Text('Clear'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: const Text('Apply'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+    if (apply != true) return;
+    setState(() {
+      _accountId = accountId;
+      _categoryId = categoryId;
+    });
+    _reload();
   }
 
   void _showAddSheet() {
@@ -114,9 +229,19 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.filter_list,
-                        color: AppColors.textSecondary),
-                    onPressed: () {},
+                    tooltip: 'Filter',
+                    icon: Badge(
+                      isLabelVisible: _sheetFilterCount > 0,
+                      label: Text('$_sheetFilterCount'),
+                      backgroundColor: AppColors.accent,
+                      child: Icon(
+                        Icons.filter_list,
+                        color: _sheetFilterCount > 0
+                            ? AppColors.accent
+                            : AppColors.textSecondary,
+                      ),
+                    ),
+                    onPressed: _showFilterSheet,
                   ),
                 ],
               ),
@@ -140,8 +265,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                   ),
                   contentPadding: const EdgeInsets.symmetric(vertical: 12),
                 ),
-                onChanged: (v) =>
-                    setState(() => _searchQuery = v.toLowerCase()),
+                onChanged: _onSearchChanged,
               ),
             ),
             const SizedBox(height: 12),
@@ -201,20 +325,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                       .fetchTransactions(),
                 ),
                 data: (paginated) {
-                  var transactions = paginated.data;
-
-                  if (_searchQuery.isNotEmpty) {
-                    transactions = transactions.where((t) {
-                      final name = (t.merchantName ??
-                              t.description ??
-                              t.counterparty ??
-                              '')
-                          .toLowerCase();
-                      final category = (t.category?.name ?? '').toLowerCase();
-                      return name.contains(_searchQuery) ||
-                          category.contains(_searchQuery);
-                    }).toList();
-                  }
+                  final transactions = paginated.data;
 
                   if (transactions.isEmpty) {
                     return _EmptyState(onAdd: _showAddSheet);

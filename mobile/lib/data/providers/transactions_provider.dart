@@ -11,6 +11,7 @@ class TransactionFilters {
   final String? categoryId;
   final DateTime? startDate;
   final DateTime? endDate;
+  final String? search;
   final int page;
   final int limit;
 
@@ -20,11 +21,13 @@ class TransactionFilters {
     this.categoryId,
     this.startDate,
     this.endDate,
+    this.search,
     this.page = 1,
     this.limit = AppConstants.pageSize,
   });
 
   TransactionFilters copyWith({
+    String? search,
     String? type,
     String? accountId,
     String? categoryId,
@@ -39,6 +42,7 @@ class TransactionFilters {
       categoryId: categoryId ?? this.categoryId,
       startDate: startDate ?? this.startDate,
       endDate: endDate ?? this.endDate,
+      search: search ?? this.search,
       page: page ?? this.page,
       limit: limit ?? this.limit,
     );
@@ -53,6 +57,7 @@ class TransactionFilters {
       if (categoryId != null) 'categoryId': categoryId,
       if (startDate != null) 'startDate': startDate!.toIso8601String(),
       if (endDate != null) 'endDate': endDate!.toIso8601String(),
+      if (search != null && search!.isNotEmpty) 'search': search,
     };
   }
 }
@@ -172,4 +177,24 @@ class TransactionsNotifier
 final transactionsProvider = StateNotifierProvider<TransactionsNotifier,
     AsyncValue<PaginatedResponse<Transaction>>>((ref) {
   return TransactionsNotifier(ref.read(apiServiceProvider));
+});
+
+/// One transaction, loaded by id (works from any screen, not only for rows
+/// the main list happens to have loaded).
+final transactionDetailProvider = FutureProvider.autoDispose
+    .family<Transaction, String>((ref, id) async {
+  final cached = ref
+      .read(transactionsProvider)
+      .valueOrNull
+      ?.data
+      .where((t) => t.id == id)
+      .firstOrNull;
+  try {
+    final response =
+        await ref.read(apiServiceProvider).get(ApiConstants.transaction(id));
+    return Transaction.fromJson(response.data['data'] as Map<String, dynamic>);
+  } catch (_) {
+    if (cached != null) return cached;
+    rethrow;
+  }
 });

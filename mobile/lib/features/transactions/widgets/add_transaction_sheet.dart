@@ -6,12 +6,16 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:bookie_ai/core/theme/app_colors.dart';
 import 'package:bookie_ai/data/models/category_model.dart';
+import 'package:bookie_ai/data/models/transaction_model.dart';
 import 'package:bookie_ai/data/providers/accounts_provider.dart';
 import 'package:bookie_ai/data/providers/categories_provider.dart';
 import 'package:bookie_ai/data/providers/transactions_provider.dart';
 
+/// Adds a transaction, or edits [existing] when given.
 class AddTransactionSheet extends ConsumerStatefulWidget {
-  const AddTransactionSheet({super.key});
+  const AddTransactionSheet({super.key, this.existing});
+
+  final Transaction? existing;
 
   @override
   ConsumerState<AddTransactionSheet> createState() =>
@@ -29,6 +33,26 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
   DateTime _selectedDate = DateTime.now();
   bool _showNotes = false;
   bool _isLoading = false;
+
+  bool get _isEdit => widget.existing != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final t = widget.existing;
+    if (t != null) {
+      _type = t.type == 'INCOME' ? 'INCOME' : 'EXPENSE';
+      _amountController.text = t.amount.toStringAsFixed(
+        t.amount.truncateToDouble() == t.amount ? 0 : 2,
+      );
+      _descriptionController.text = t.description ?? t.merchantName ?? '';
+      _noteController.text = t.note ?? '';
+      _showNotes = (t.note ?? '').isNotEmpty;
+      _selectedCategoryId = t.categoryId;
+      _selectedAccountId = t.accountId;
+      _selectedDate = t.occurredAt.toLocal();
+    }
+  }
 
   @override
   void dispose() {
@@ -81,13 +105,20 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
       return;
     }
 
+    if (_isEdit) {
+      await _saveEdit(amount);
+      return;
+    }
+
     final accounts = ref.read(accountsProvider).valueOrNull ?? const [];
-    final account = accounts.where((a) => a.id == _selectedAccountId).firstOrNull ??
-        accounts.firstOrNull;
+    final account =
+        accounts.where((a) => a.id == _selectedAccountId).firstOrNull ??
+            accounts.firstOrNull;
     if (account == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Add an account first, then record transactions in it.'),
+          content:
+              Text('Add an account first, then record transactions in it.'),
           backgroundColor: AppColors.expense,
         ),
       );
@@ -136,6 +167,47 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
     }
   }
 
+  Future<void> _saveEdit(double amount) async {
+    final existing = widget.existing!;
+    setState(() => _isLoading = true);
+    try {
+      final local = existing.occurredAt.toLocal();
+      final sameDay = local.year == _selectedDate.year &&
+          local.month == _selectedDate.month &&
+          local.day == _selectedDate.day;
+      await ref.read(transactionsProvider.notifier).updateTransaction(
+        existing.id,
+        {
+          'type': _type,
+          'amount': amount,
+          'description': _descriptionController.text.trim(),
+          if (_selectedCategoryId != null) 'categoryId': _selectedCategoryId,
+          'note': _noteController.text.trim(),
+          if (!sameDay)
+            'occurredAt': DateTime(
+              _selectedDate.year,
+              _selectedDate.month,
+              _selectedDate.day,
+              local.hour,
+              local.minute,
+            ).toUtc().toIso8601String(),
+        },
+      );
+      if (mounted) Navigator.of(context).pop(true);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not save: ${friendlyError(e)}'),
+            backgroundColor: AppColors.expense,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
@@ -166,7 +238,7 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
             ),
             const SizedBox(height: 20),
             Text(
-              'Add Transaction',
+              _isEdit ? 'Edit Transaction' : 'Add Transaction',
               style: textTheme.headlineSmall?.copyWith(
                 color: AppColors.textPrimary,
                 fontWeight: FontWeight.w700,
@@ -209,7 +281,8 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
             ),
             Center(
               child: Text(
-                accountsAsync.whenOrNull(
+                widget.existing?.currency ??
+                    accountsAsync.whenOrNull(
                       data: (accounts) {
                         final account = accounts
                             .where((a) => a.id == _selectedAccountId)
@@ -266,61 +339,62 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
               },
             ),
             const SizedBox(height: 20),
-            accountsAsync.when(
-              loading: () => const SizedBox.shrink(),
-              error: (_, __) => const SizedBox.shrink(),
-              data: (accounts) {
-                if (accounts.isEmpty) {
-                  return Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: AppColors.warning.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.account_balance_wallet_outlined,
-                            color: AppColors.warning),
-                        const SizedBox(width: 12),
-                        const Expanded(
-                          child: Text(
-                            'You need an account (bank, wallet or cash) to '
-                            'record transactions in.',
-                            style: TextStyle(color: AppColors.textSecondary),
+            if (!_isEdit)
+              accountsAsync.when(
+                loading: () => const SizedBox.shrink(),
+                error: (_, __) => const SizedBox.shrink(),
+                data: (accounts) {
+                  if (accounts.isEmpty) {
+                    return Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: AppColors.warning.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.account_balance_wallet_outlined,
+                              color: AppColors.warning),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Text(
+                              'You need an account (bank, wallet or cash) to '
+                              'record transactions in.',
+                              style: TextStyle(color: AppColors.textSecondary),
+                            ),
                           ),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            final router = GoRouter.of(context);
-                            Navigator.of(context).pop();
-                            router.go('/accounts');
-                          },
-                          child: const Text('Add one'),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-                _selectedAccountId ??=
-                    accounts.where((a) => a.isPrimary).firstOrNull?.id ??
-                        accounts.first.id;
-                return DropdownButtonFormField<String>(
-                  initialValue: _selectedAccountId,
-                  decoration: const InputDecoration(labelText: 'Account'),
-                  dropdownColor: AppColors.surface,
-                  style: const TextStyle(color: AppColors.textPrimary),
-                  items: accounts.map((a) {
-                    return DropdownMenuItem(
-                      value: a.id,
-                      child: Text(a.name),
+                          TextButton(
+                            onPressed: () {
+                              final router = GoRouter.of(context);
+                              Navigator.of(context).pop();
+                              router.go('/accounts');
+                            },
+                            child: const Text('Add one'),
+                          ),
+                        ],
+                      ),
                     );
-                  }).toList(),
-                  onChanged: (v) {
-                    if (v != null) setState(() => _selectedAccountId = v);
-                  },
-                );
-              },
-            ),
+                  }
+                  _selectedAccountId ??=
+                      accounts.where((a) => a.isPrimary).firstOrNull?.id ??
+                          accounts.first.id;
+                  return DropdownButtonFormField<String>(
+                    initialValue: _selectedAccountId,
+                    decoration: const InputDecoration(labelText: 'Account'),
+                    dropdownColor: AppColors.surface,
+                    style: const TextStyle(color: AppColors.textPrimary),
+                    items: accounts.map((a) {
+                      return DropdownMenuItem(
+                        value: a.id,
+                        child: Text(a.name),
+                      );
+                    }).toList(),
+                    onChanged: (v) {
+                      if (v != null) setState(() => _selectedAccountId = v);
+                    },
+                  );
+                },
+              ),
             const SizedBox(height: 20),
             InkWell(
               onTap: _pickDate,
@@ -392,7 +466,9 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
                         ),
                       )
                     : Text(
-                        'Add ${_type == 'EXPENSE' ? 'Expense' : 'Income'}',
+                        _isEdit
+                            ? 'Save changes'
+                            : 'Add ${_type == 'EXPENSE' ? 'Expense' : 'Income'}',
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
