@@ -30,6 +30,7 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
   String _type = 'EXPENSE';
   String? _selectedCategoryId;
   String? _selectedAccountId;
+  String? _toAccountId;
   DateTime _selectedDate = DateTime.now();
   bool _showNotes = false;
   bool _isLoading = false;
@@ -95,7 +96,7 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
       return;
     }
 
-    if (_descriptionController.text.trim().isEmpty) {
+    if (_type != 'TRANSFER' && _descriptionController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please enter a description'),
@@ -107,6 +108,10 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
 
     if (_isEdit) {
       await _saveEdit(amount);
+      return;
+    }
+    if (_type == 'TRANSFER') {
+      await _saveTransfer(amount);
       return;
     }
 
@@ -161,6 +166,41 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
             backgroundColor: AppColors.expense,
           ),
         );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _saveTransfer(double amount) async {
+    if (_selectedAccountId == null ||
+        _toAccountId == null ||
+        _selectedAccountId == _toAccountId) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Pick two different accounts to move money between.'),
+        backgroundColor: AppColors.expense,
+      ));
+      return;
+    }
+    setState(() => _isLoading = true);
+    try {
+      final now = DateTime.now();
+      await ref.read(transactionsProvider.notifier).createTransfer(
+            fromAccountId: _selectedAccountId!,
+            toAccountId: _toAccountId!,
+            amount: amount,
+            description: _descriptionController.text.trim(),
+            occurredAt: DateTime(_selectedDate.year, _selectedDate.month,
+                _selectedDate.day, now.hour, now.minute),
+          );
+      await ref.read(accountsProvider.notifier).fetchAccounts();
+      if (mounted) Navigator.of(context).pop(true);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Transfer failed: ${friendlyError(e)}'),
+          backgroundColor: AppColors.expense,
+        ));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -247,7 +287,11 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
             const SizedBox(height: 24),
             _TypeToggle(
               selected: _type,
-              onChanged: (v) => setState(() => _type = v),
+              allowTransfer: !_isEdit,
+              onChanged: (v) => setState(() {
+                _type = v;
+                _selectedCategoryId = null; // categories differ by type
+              }),
             ),
             const SizedBox(height: 24),
             Center(
@@ -256,9 +300,11 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
                 child: TextField(
                   controller: _amountController,
                   style: textTheme.displayMedium?.copyWith(
-                    color: _type == 'EXPENSE'
-                        ? AppColors.expense
-                        : AppColors.accent,
+                    color: switch (_type) {
+                      'EXPENSE' => AppColors.expense,
+                      'TRANSFER' => AppColors.info,
+                      _ => AppColors.accent,
+                    },
                     fontWeight: FontWeight.w700,
                   ),
                   textAlign: TextAlign.center,
@@ -306,38 +352,41 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
               ),
               textCapitalization: TextCapitalization.sentences,
             ),
-            const SizedBox(height: 20),
-            Text(
-              'Category',
-              style: textTheme.titleSmall?.copyWith(
-                color: AppColors.textSecondary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            categoriesAsync.when(
-              loading: () => const Center(
-                child: SizedBox(
-                  height: 24,
-                  width: 24,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+            if (_type != 'TRANSFER') ...[
+              const SizedBox(height: 20),
+              Text(
+                'Category',
+                style: textTheme.titleSmall?.copyWith(
+                  color: AppColors.textSecondary,
                 ),
               ),
-              error: (_, __) => Text(
-                'Could not load categories',
-                style: textTheme.bodySmall?.copyWith(
-                  color: AppColors.textTertiary,
+              const SizedBox(height: 8),
+              categoriesAsync.when(
+                loading: () => const Center(
+                  child: SizedBox(
+                    height: 24,
+                    width: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
                 ),
+                error: (_, __) => Text(
+                  'Could not load categories',
+                  style: textTheme.bodySmall?.copyWith(
+                    color: AppColors.textTertiary,
+                  ),
+                ),
+                data: (categories) {
+                  final filtered =
+                      categories.where((c) => c.type == _type).toList();
+                  return _CategoryGrid(
+                    categories: filtered,
+                    selectedId: _selectedCategoryId,
+                    onSelected: (id) =>
+                        setState(() => _selectedCategoryId = id),
+                  );
+                },
               ),
-              data: (categories) {
-                final filtered =
-                    categories.where((c) => c.type == _type).toList();
-                return _CategoryGrid(
-                  categories: filtered,
-                  selectedId: _selectedCategoryId,
-                  onSelected: (id) => setState(() => _selectedCategoryId = id),
-                );
-              },
-            ),
+            ],
             const SizedBox(height: 20),
             if (!_isEdit)
               accountsAsync.when(
@@ -380,7 +429,9 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
                           accounts.first.id;
                   return DropdownButtonFormField<String>(
                     initialValue: _selectedAccountId,
-                    decoration: const InputDecoration(labelText: 'Account'),
+                    decoration: InputDecoration(
+                      labelText: _type == 'TRANSFER' ? 'From' : 'Account',
+                    ),
                     dropdownColor: AppColors.surface,
                     style: const TextStyle(color: AppColors.textPrimary),
                     items: accounts.map((a) {
@@ -395,6 +446,41 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
                   );
                 },
               ),
+            if (_type == 'TRANSFER' && !_isEdit) ...[
+              const SizedBox(height: 16),
+              accountsAsync.maybeWhen(
+                data: (accounts) {
+                  final others = accounts
+                      .where((a) => a.id != _selectedAccountId)
+                      .toList();
+                  if (others.isEmpty) {
+                    return const Text(
+                      'Add a second account to move money between them.',
+                      style: TextStyle(color: AppColors.textSecondary),
+                    );
+                  }
+                  if (!others.any((a) => a.id == _toAccountId)) {
+                    _toAccountId = others.first.id;
+                  }
+                  return DropdownButtonFormField<String>(
+                    key: ValueKey(_selectedAccountId),
+                    initialValue: _toAccountId,
+                    decoration: const InputDecoration(labelText: 'To'),
+                    dropdownColor: AppColors.surface,
+                    style: const TextStyle(color: AppColors.textPrimary),
+                    items: [
+                      for (final a in others)
+                        DropdownMenuItem(
+                          value: a.id,
+                          child: Text('${a.name} (${a.currency})'),
+                        ),
+                    ],
+                    onChanged: (v) => setState(() => _toAccountId = v),
+                  );
+                },
+                orElse: () => const SizedBox.shrink(),
+              ),
+            ],
             const SizedBox(height: 20),
             InkWell(
               onTap: _pickDate,
@@ -450,8 +536,11 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
               child: FilledButton(
                 onPressed: _isLoading ? null : _submit,
                 style: FilledButton.styleFrom(
-                  backgroundColor:
-                      _type == 'EXPENSE' ? AppColors.expense : AppColors.accent,
+                  backgroundColor: switch (_type) {
+                    'EXPENSE' => AppColors.expense,
+                    'TRANSFER' => AppColors.info,
+                    _ => AppColors.accent,
+                  },
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),
@@ -468,7 +557,9 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
                     : Text(
                         _isEdit
                             ? 'Save changes'
-                            : 'Add ${_type == 'EXPENSE' ? 'Expense' : 'Income'}',
+                            : _type == 'TRANSFER'
+                                ? 'Move money'
+                                : 'Add ${_type == 'EXPENSE' ? 'Expense' : 'Income'}',
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -484,9 +575,14 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
 }
 
 class _TypeToggle extends StatelessWidget {
-  const _TypeToggle({required this.selected, required this.onChanged});
+  const _TypeToggle({
+    required this.selected,
+    required this.onChanged,
+    this.allowTransfer = false,
+  });
 
   final String selected;
+  final bool allowTransfer;
   final ValueChanged<String> onChanged;
 
   @override
@@ -511,6 +607,13 @@ class _TypeToggle extends StatelessWidget {
             color: AppColors.accent,
             onTap: () => onChanged('INCOME'),
           ),
+          if (allowTransfer)
+            _ToggleItem(
+              label: 'Transfer',
+              isSelected: selected == 'TRANSFER',
+              color: AppColors.info,
+              onTap: () => onChanged('TRANSFER'),
+            ),
         ],
       ),
     );

@@ -68,31 +68,37 @@ class _TransactionDetailView extends ConsumerWidget {
     final primaryCurrency =
         ref.watch(authProvider).user?.primaryCurrency ?? transaction.currency;
     final textTheme = Theme.of(context).textTheme;
-    final isExpense = transaction.type == 'EXPENSE';
-    final amountColor = isExpense ? AppColors.expense : AppColors.accent;
+    final isExpense = transaction.isOutflow;
+    final amountColor = transaction.isTransfer
+        ? AppColors.info
+        : isExpense
+            ? AppColors.expense
+            : AppColors.accent;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Transaction'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.edit_outlined),
-            tooltip: 'Edit',
-            onPressed: () async {
-              final saved = await showModalBottomSheet<bool>(
-                context: context,
-                isScrollControlled: true,
-                backgroundColor: AppColors.primary,
-                shape: const RoundedRectangleBorder(
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                ),
-                builder: (_) => AddTransactionSheet(existing: transaction),
-              );
-              if (saved == true) {
-                ref.invalidate(transactionDetailProvider(transaction.id));
-              }
-            },
-          ),
+          if (transaction.transferPairId == null)
+            IconButton(
+              icon: const Icon(Icons.edit_outlined),
+              tooltip: 'Edit',
+              onPressed: () async {
+                final saved = await showModalBottomSheet<bool>(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: AppColors.primary,
+                  shape: const RoundedRectangleBorder(
+                    borderRadius:
+                        BorderRadius.vertical(top: Radius.circular(20)),
+                  ),
+                  builder: (_) => AddTransactionSheet(existing: transaction),
+                );
+                if (saved == true) {
+                  ref.invalidate(transactionDetailProvider(transaction.id));
+                }
+              },
+            ),
           IconButton(
             icon: const Icon(Icons.delete_outline, color: AppColors.expense),
             onPressed: () => _confirmDelete(context, ref),

@@ -24,6 +24,11 @@ class Transaction {
   final double? convertedAmount;
   final double? fxRateUsed;
   final DateTime createdAt;
+  // Transfers between the user's own accounts (two linked legs).
+  final String? transferAccountId;
+  final String? transferAccountName;
+  final String? transferPairId;
+  final bool transferIn;
 
   const Transaction({
     required this.id,
@@ -40,6 +45,10 @@ class Transaction {
     required this.sourceType,
     this.note,
     this.isRecurring = false,
+    this.transferAccountId,
+    this.transferAccountName,
+    this.transferPairId,
+    this.transferIn = false,
     required this.parseConfidence,
     required this.categoryConfidence,
     this.accountId,
@@ -48,6 +57,11 @@ class Transaction {
     this.fxRateUsed,
     required this.createdAt,
   });
+
+  bool get isTransfer => type == 'TRANSFER';
+
+  /// Money leaving the account: spending or an outgoing transfer.
+  bool get isOutflow => type == 'EXPENSE' || (isTransfer && !transferIn);
 
   factory Transaction.fromJson(Map<String, dynamic> json) {
     return Transaction(
@@ -67,6 +81,11 @@ class Transaction {
       sourceType: json['sourceType'] as String,
       note: json['note'] as String?,
       isRecurring: json['isRecurringGuess'] as bool? ?? false,
+      transferAccountId: json['transferAccountId'] as String?,
+      transferAccountName:
+          (json['transferAccount'] as Map?)?['name'] as String?,
+      transferPairId: json['transferPairId'] as String?,
+      transferIn: json['transferIn'] as bool? ?? false,
       parseConfidence: parseDouble(json['parseConfidence'], fallback: 1.0),
       categoryConfidence:
           parseDouble(json['categoryConfidence'], fallback: 1.0),
@@ -95,6 +114,11 @@ class Transaction {
       'sourceType': sourceType,
       if (note != null) 'note': note,
       'isRecurringGuess': isRecurring,
+      if (transferAccountId != null) 'transferAccountId': transferAccountId,
+      if (transferAccountName != null)
+        'transferAccount': {'name': transferAccountName},
+      if (transferPairId != null) 'transferPairId': transferPairId,
+      'transferIn': transferIn,
       'parseConfidence': parseConfidence,
       'categoryConfidence': categoryConfidence,
       if (accountId != null) 'accountId': accountId,

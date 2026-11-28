@@ -19,9 +19,12 @@ class TransactionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final isExpense = transaction.type == 'EXPENSE';
-    final amountColor = isExpense ? AppColors.expense : AppColors.accent;
-    final sign = isExpense ? '-' : '+';
+    final amountColor = transaction.isTransfer
+        ? AppColors.info
+        : transaction.isOutflow
+            ? AppColors.expense
+            : AppColors.accent;
+    final sign = transaction.isOutflow ? '-' : '+';
     final categoryIcon = transaction.category?.icon ?? '📦';
     final categoryColor = _parseColor(transaction.category?.color);
 
@@ -70,8 +73,12 @@ class TransactionTile extends StatelessWidget {
                       Flexible(
                         child: Text(
                           [
-                            transaction.category?.name ??
-                                transaction.subcategory,
+                            if (transaction.isTransfer &&
+                                transaction.transferAccountName != null)
+                              '${transaction.transferIn ? 'From' : 'To'} ${transaction.transferAccountName}'
+                            else
+                              transaction.category?.name ??
+                                  transaction.subcategory,
                             if (transaction.isRecurring) 'Recurring',
                           ].whereType<String>().join(' · '),
                           style: textTheme.bodySmall?.copyWith(

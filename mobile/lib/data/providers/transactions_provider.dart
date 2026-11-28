@@ -132,6 +132,26 @@ class TransactionsNotifier
     return transaction;
   }
 
+  /// Moves [amount] (in the source account's currency) between two of the
+  /// user's accounts; the server converts it if the currencies differ.
+  Future<void> createTransfer({
+    required String fromAccountId,
+    required String toAccountId,
+    required double amount,
+    String? description,
+    DateTime? occurredAt,
+  }) async {
+    await _api.post(ApiConstants.transfers, data: {
+      'fromAccountId': fromAccountId,
+      'toAccountId': toAccountId,
+      'amount': amount,
+      if (description != null && description.isNotEmpty)
+        'description': description,
+      if (occurredAt != null) 'occurredAt': occurredAt.toUtc().toIso8601String(),
+    });
+    await fetchTransactions(filters: _filters.copyWith(page: 1));
+  }
+
   Future<Transaction> updateTransaction(
     String id,
     Map<String, dynamic> data,

@@ -64,6 +64,7 @@ abstract final class ApiConstants {
 
   // Transactions
   static const String transactions = '/transactions';
+  static const String transfers = '/transactions/transfers';
   static String transaction(String id) => '/transactions/$id';
   static const String monthlyStats = '/transactions/stats/monthly';
   static const String categoryStats = '/transactions/stats/categories';
