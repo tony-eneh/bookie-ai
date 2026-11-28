@@ -1,11 +1,11 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:sms_inbox/sms_inbox.dart';
 import 'package:bookie_ai/core/constants/api_constants.dart';
 import 'package:bookie_ai/data/services/api_service.dart';
-import 'package:bookie_ai/data/services/storage_service.dart';
+import 'package:bookie_ai/data/services/sms_background.dart';
 
 /// Looks like a bank/wallet transaction alert (and not an OTP or promo).
 @visibleForTesting
@@ -34,19 +34,17 @@ class SmsScanResult {
 /// Reads bank alert SMS from the Android inbox and sends new ones to the
 /// server, which parses, deduplicates and categorizes them. Opt-in.
 class SmsImportService {
-  SmsImportService(this._api, this._storage);
+  SmsImportService(this._api);
 
-  static const _channel = MethodChannel('bookie_ai/sms');
   static const _firstScanWindow = Duration(days: 30);
 
   final ApiService _api;
-  final StorageService _storage;
   Future<SmsScanResult>? _running;
 
   bool get isSupported =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
-  bool get isEnabled => isSupported && _storage.smsImportEnabled;
+  Future<bool> isEnabled() async => isSupported && await SmsPrefs.enabled();
 
   /// Asks for SMS access; on success turns the feature on and makes the
   /// first scan cover the last 30 days.
@@ -54,14 +52,20 @@ class SmsImportService {
     if (!isSupported) return false;
     final status = await Permission.sms.request();
     if (!status.isGranted) return false;
-    await _storage.setSmsImportEnabled(true);
-    if (_storage.smsLastScan == null) {
-      await _storage.setSmsLastScan(DateTime.now().subtract(_firstScanWindow));
+    // So background pick-ups can say so (Android 13+ asks).
+    await Permission.notification.request();
+    await SmsPrefs.setEnabled(true);
+    if (await SmsPrefs.lastScan() == null) {
+      await SmsPrefs.setLastScan(DateTime.now().subtract(_firstScanWindow));
     }
+    await SmsBackground.schedule();
     return true;
   }
 
-  Future<void> disable() => _storage.setSmsImportEnabled(false);
+  Future<void> disable() async {
+    await SmsPrefs.setEnabled(false);
+    await SmsBackground.cancel();
+  }
 
   /// Sends bank alerts received since the last scan, oldest first. Stops at
   /// the first network error so nothing is skipped; the next scan resumes.
@@ -71,21 +75,12 @@ class SmsImportService {
   }
 
   Future<SmsScanResult> _scan() async {
-    if (!isEnabled || !await Permission.sms.isGranted) {
+    if (!await isEnabled() || !await Permission.sms.isGranted) {
       return const SmsScanResult();
     }
-    final since = _storage.smsLastScan ??
+    final since = await SmsPrefs.lastScan() ??
         DateTime.now().subtract(_firstScanWindow);
-    final raw = await _channel.invokeListMethod<Map>('readInbox', {
-      'since': since.millisecondsSinceEpoch,
-      'limit': 300,
-    });
-    final messages = (raw ?? const [])
-        .map((m) => (
-              body: m['body'] as String? ?? '',
-              date: DateTime.fromMillisecondsSinceEpoch(m['date'] as int),
-            ))
-        .toList()
+    final messages = await SmsInbox.read(since: since, limit: 300)
       ..sort((a, b) => a.date.compareTo(b.date));
 
     var recorded = 0, duplicates = 0, skipped = 0;
@@ -114,7 +109,7 @@ class SmsImportService {
       }
       handledUpTo = m.date;
     }
-    await _storage.setSmsLastScan(handledUpTo);
+    await SmsPrefs.setLastScan(handledUpTo);
     return SmsScanResult(
       recorded: recorded,
       duplicates: duplicates,
@@ -124,8 +119,5 @@ class SmsImportService {
 }
 
 final smsImportServiceProvider = Provider<SmsImportService>((ref) {
-  return SmsImportService(
-    ref.read(apiServiceProvider),
-    ref.read(storageServiceProvider),
-  );
+  return SmsImportService(ref.read(apiServiceProvider));
 });

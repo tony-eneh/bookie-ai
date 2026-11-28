@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:bookie_ai/data/models/user_model.dart';
+import 'package:bookie_ai/data/services/sms_background.dart';
 
 const _userBoxName = 'user_box';
 const _cacheBoxName = 'cache_box';
@@ -51,10 +52,14 @@ class StorageService {
     await Future.wait([
       _userBox.clear(),
       _cacheBox.clear(),
-      // SMS import is tied to the account that turned it on.
-      _prefsBox.delete('sms_import_enabled'),
-      _prefsBox.delete('sms_last_scan'),
     ]);
+    // SMS import is tied to the account that turned it on.
+    try {
+      await SmsPrefs.clear();
+      await SmsBackground.cancel();
+    } catch (_) {
+      // No WorkManager (tests, web): nothing scheduled to cancel.
+    }
   }
 
   Future<void> clearAll() async {
@@ -84,20 +89,6 @@ class StorageService {
       _prefsBox.put('pref_financial_personality', financialPersonality),
     ]);
   }
-
-  bool get smsImportEnabled =>
-      _prefsBox.get('sms_import_enabled', defaultValue: false) as bool;
-
-  Future<void> setSmsImportEnabled(bool value) =>
-      _prefsBox.put('sms_import_enabled', value);
-
-  DateTime? get smsLastScan {
-    final ms = _prefsBox.get('sms_last_scan') as int?;
-    return ms == null ? null : DateTime.fromMillisecondsSinceEpoch(ms);
-  }
-
-  Future<void> setSmsLastScan(DateTime value) =>
-      _prefsBox.put('sms_last_scan', value.millisecondsSinceEpoch);
 
   String? getOnboardingPreference(String key) {
     return _prefsBox.get('pref_$key') as String?;

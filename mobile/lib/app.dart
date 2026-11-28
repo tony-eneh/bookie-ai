@@ -40,7 +40,9 @@ class _BookieAppState extends ConsumerState<BookieApp>
   /// turned SMS reading on) whenever the app is opened or brought back.
   Future<void> _scanSms() async {
     final sms = ref.read(smsImportServiceProvider);
-    if (_scanning || !sms.isEnabled || !ref.read(authProvider).isAuthenticated) {
+    if (_scanning ||
+        !ref.read(authProvider).isAuthenticated ||
+        !await sms.isEnabled()) {
       return;
     }
     _scanning = true;

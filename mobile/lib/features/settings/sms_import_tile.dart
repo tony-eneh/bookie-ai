@@ -17,6 +17,20 @@ class SmsImportTile extends ConsumerStatefulWidget {
 
 class _SmsImportTileState extends ConsumerState<SmsImportTile> {
   bool _busy = false;
+  bool _enabled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _sms.isEnabled().then((v) {
+      if (mounted) setState(() => _enabled = v);
+    });
+  }
+
+  Future<void> _refresh() async {
+    final v = await _sms.isEnabled();
+    if (mounted) setState(() => _enabled = v);
+  }
 
   SmsImportService get _sms => ref.read(smsImportServiceProvider);
 
@@ -24,11 +38,11 @@ class _SmsImportTileState extends ConsumerState<SmsImportTile> {
     final messenger = ScaffoldMessenger.of(context);
     if (!on) {
       await _sms.disable();
-      setState(() {});
+      await _refresh();
       return;
     }
     final granted = await _sms.enable();
-    setState(() {});
+    await _refresh();
     if (!granted) {
       messenger.showSnackBar(const SnackBar(
         content: Text(
@@ -74,7 +88,7 @@ class _SmsImportTileState extends ConsumerState<SmsImportTile> {
   @override
   Widget build(BuildContext context) {
     if (!_sms.isSupported) return const SizedBox.shrink();
-    final enabled = _sms.isEnabled;
+    final enabled = _enabled;
     return Column(
       children: [
         SwitchListTile(
@@ -83,8 +97,9 @@ class _SmsImportTileState extends ConsumerState<SmsImportTile> {
           title: const Text('Read bank SMS',
               style: TextStyle(color: AppColors.textPrimary, fontSize: 15)),
           subtitle: const Text(
-            'Turn bank alerts into transactions automatically. Only messages '
-            'that look like transaction alerts are sent; OTPs are ignored.',
+            'Turn bank alerts into transactions automatically, even when '
+            'BookieAI is closed (about every 15 minutes). Only transaction '
+            'alerts are sent; OTPs are ignored.',
             style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
           ),
           value: enabled,

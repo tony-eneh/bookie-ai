@@ -1,0 +1,19 @@
+name: sms_inbox
+description: Reads the Android SMS inbox for BookieAI. A plugin (not MainActivity code) so background engines such as WorkManager's can use it too.
+version: 1.0.0
+publish_to: 'none'
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+  flutter: '>=3.3.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: com.bookieai.sms_inbox
+        pluginClass: SmsInboxPlugin

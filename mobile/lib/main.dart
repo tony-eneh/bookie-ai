@@ -4,6 +4,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:bookie_ai/app.dart';
+import 'package:bookie_ai/data/services/sms_background.dart';
 import 'package:bookie_ai/data/services/storage_service.dart';
 
 void main() async {
@@ -19,6 +20,13 @@ void main() async {
 
   final storageService = StorageService();
   await storageService.init();
+
+  // Background bank-SMS scans (Android); a no-op until SMS reading is on.
+  try {
+    await SmsBackground.initialize();
+  } catch (_) {
+    // Platforms without WorkManager.
+  }
 
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
