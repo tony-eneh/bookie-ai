@@ -61,7 +61,7 @@ export class EmailQueueService implements OnModuleInit, OnModuleDestroy {
 
   async enqueuePasswordResetEmail(payload: PasswordResetEmailPayload) {
     if (!this.queue) {
-      await this.mailService.sendPasswordResetEmail(payload);
+      await this.sendInline(payload);
       return;
     }
 
@@ -82,7 +82,21 @@ export class EmailQueueService implements OnModuleInit, OnModuleDestroy {
       this.logger.warn(
         `Could not queue email (${error instanceof Error ? error.message : String(error)}); sending inline.`,
       );
+      await this.sendInline(payload);
+    }
+  }
+
+  /**
+   * A failed send is logged, not thrown: the caller's response must not
+   * reveal whether the email exists or whether delivery worked.
+   */
+  private async sendInline(payload: PasswordResetEmailPayload) {
+    try {
       await this.mailService.sendPasswordResetEmail(payload);
+    } catch (error) {
+      this.logger.error(
+        `Password reset email to ${payload.to} failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 

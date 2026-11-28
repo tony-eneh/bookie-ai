@@ -30,8 +30,10 @@ Optional:
   `OPENAI_API_KEY` unset for mock mode.
 - `REDIS_URL`: queue for outgoing email. When unset or unreachable, email is
   sent inline.
-- `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`,
-  `SMTP_FROM`: password reset email. Without SMTP the reset link is only logged.
+- `RESEND_API_KEY`: sends email (password resets) through Resend. The
+  sender domain must be verified in Resend.
+- `MAIL_FROM`: optional sender, default `BookieAI <noreply@joypinness.com>`.
+- (`SMTP_*` still works as a fallback when `RESEND_API_KEY` is unset.)
 - `PASSWORD_RESET_URL`: optional. The reset email links to a page the API
   serves itself (`/api/auth/reset-password`), built from the request host;
   set this only to send users somewhere else. (`APP_URL` is no longer used.)
