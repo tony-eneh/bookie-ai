@@ -1,3 +1,4 @@
+import 'package:bookie_ai/data/services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -23,7 +24,7 @@ class AccountsScreen extends ConsumerWidget {
             child: _AccountsShimmer(),
           ),
           error: (error, _) => _ErrorView(
-            message: error.toString(),
+            message: friendlyError(error),
             onRetry: () => ref.read(accountsProvider.notifier).fetchAccounts(),
           ),
           data: (accounts) => RefreshIndicator(
@@ -68,6 +69,12 @@ class _AccountsContent extends StatelessWidget {
         0.0, (sum, a) => sum + (a.convertedBalance ?? a.currentBalance));
   }
 
+  /// The server converts every balance into the user's primary currency.
+  String get _totalCurrency =>
+      accounts.map((a) => a.convertedCurrency).nonNulls.firstOrNull ??
+      accounts.firstOrNull?.currency ??
+      'USD';
+
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
@@ -84,7 +91,10 @@ class _AccountsContent extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 20),
-        _TotalBalanceCard(totalBalance: _totalBalance),
+        _TotalBalanceCard(
+          totalBalance: _totalBalance,
+          currency: _totalCurrency,
+        ),
         const SizedBox(height: 20),
         ...accounts.map((account) => Padding(
               padding: const EdgeInsets.only(bottom: 12),
@@ -97,9 +107,13 @@ class _AccountsContent extends StatelessWidget {
 }
 
 class _TotalBalanceCard extends StatelessWidget {
-  const _TotalBalanceCard({required this.totalBalance});
+  const _TotalBalanceCard({
+    required this.totalBalance,
+    required this.currency,
+  });
 
   final double totalBalance;
+  final String currency;
 
   @override
   Widget build(BuildContext context) {
@@ -123,7 +137,7 @@ class _TotalBalanceCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            CurrencyFormatter.format(totalBalance, currency: 'USD'),
+            CurrencyFormatter.format(totalBalance, currency: currency),
             style: textTheme.displaySmall?.copyWith(
               color: Colors.white,
               fontWeight: FontWeight.w700,
@@ -179,7 +193,8 @@ class _AccountCard extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     final emoji = _typeEmojis[account.type] ?? '💰';
     final showConverted = account.convertedBalance != null &&
-        account.convertedBalance != account.currentBalance;
+        account.convertedCurrency != null &&
+        account.convertedCurrency != account.currency;
 
     return GestureDetector(
       onTap: () => context.push('/accounts/${account.id}'),
@@ -282,7 +297,7 @@ class _AccountCard extends StatelessWidget {
                       Text(
                         CurrencyFormatter.format(
                           account.convertedBalance!,
-                          currency: 'USD',
+                          currency: account.convertedCurrency ?? 'USD',
                           compact: true,
                         ),
                         style: textTheme.bodySmall?.copyWith(

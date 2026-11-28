@@ -1,22 +1,32 @@
-import { Test, TestingModule } from '@nestjs/testing';
+import { ServiceUnavailableException } from '@nestjs/common';
 import { AppController } from './app.controller.js';
-import { AppService } from './app.service.js';
+import type { AiService } from './ai/ai.service.js';
+import type { PrismaService } from './prisma/prisma.service.js';
 
 describe('AppController', () => {
-  let appController: AppController;
+  const ai = { isLive: () => false } as unknown as AiService;
 
-  beforeEach(async () => {
-    const app: TestingModule = await Test.createTestingModule({
-      controllers: [AppController],
-      providers: [AppService],
-    }).compile();
-
-    appController = app.get<AppController>(AppController);
+  it('reports ok when the database answers', async () => {
+    const prisma = { $queryRaw: jest.fn().mockResolvedValue([1]) };
+    const controller = new AppController(
+      prisma as unknown as PrismaService,
+      ai,
+    );
+    await expect(controller.health()).resolves.toMatchObject({
+      status: 'ok',
+      db: 'ok',
+      ai: 'mock',
+    });
   });
 
-  describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(appController.getHello()).toBe('Hello World!');
-    });
+  it('returns 503 when the database is down', async () => {
+    const prisma = { $queryRaw: jest.fn().mockRejectedValue(new Error('x')) };
+    const controller = new AppController(
+      prisma as unknown as PrismaService,
+      ai,
+    );
+    await expect(controller.health()).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
+    );
   });
 });

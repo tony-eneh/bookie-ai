@@ -1,7 +1,7 @@
 name: bookie_ai
 description: "Track nothing. Know everything. Voice-first AI-powered personal finance app."
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.1.0+2
 
 environment:
   sdk: '>=3.2.0 <4.0.0'
@@ -35,6 +35,8 @@ dependencies:
   cached_network_image: ^3.3.1
   flutter_svg: ^2.0.9
   lottie: ^3.0.0
+  share_plus: ^12.0.2
+  file_picker: ^11.0.3
 
 dev_dependencies:
   flutter_test:
@@ -45,10 +47,31 @@ dev_dependencies:
   json_serializable: ^6.7.1
   riverpod_generator: ^2.3.9
   mockito: ^5.4.4
+  flutter_launcher_icons: ^0.14.4
+  flutter_native_splash: ^2.4.7
 
 flutter:
   uses-material-design: true
   assets:
-    - assets/images/
-    - assets/animations/
     - assets/env/
+
+# App icon: dart run flutter_launcher_icons
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: assets/branding/icon.png
+  adaptive_icon_background: assets/branding/icon_background.png
+  adaptive_icon_foreground: assets/branding/icon_foreground.png
+  min_sdk_android: 24
+
+# Launch screen: dart run flutter_native_splash:create
+flutter_native_splash:
+  color: "#1A1B2E"
+  image: assets/branding/splash_logo.png
+  android_12:
+    # Android 12+ masks the splash icon to a circle: use the centred mark.
+    color: "#1A1B2E"
+    image: assets/branding/icon_foreground.png
+    icon_background_color: "#00C9B4"
+  ios: false
+  web: false

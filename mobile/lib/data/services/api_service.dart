@@ -22,6 +22,11 @@ class ApiService {
   late final Dio _dio;
   final Ref _ref;
   bool _isRefreshing = false;
+
+  /// Emits when the session can no longer be refreshed (refresh token missing,
+  /// expired or revoked). Tokens have already been cleared at that point.
+  final _sessionExpired = StreamController<void>.broadcast();
+  Stream<void> get onSessionExpired => _sessionExpired.stream;
   final _refreshQueue =
       <({Completer<Response> completer, RequestOptions options})>[];
 
@@ -87,6 +92,8 @@ class ApiService {
   Future<String?> getAccessToken() {
     return _storage.read(key: _accessTokenKey);
   }
+
+  Future<String?> getRefreshToken() => _getRefreshToken();
 
   Future<String?> _getRefreshToken() {
     return _storage.read(key: _refreshTokenKey);
@@ -174,7 +181,11 @@ class ApiService {
 
       return retryResponse;
     } catch (e) {
-      await clearTokens();
+      final sessionDead = e is! DioException || _isAuthFailure(e);
+      if (sessionDead) {
+        await clearTokens();
+        _sessionExpired.add(null);
+      }
       for (final entry in _refreshQueue) {
         entry.completer.completeError(e);
       }
@@ -183,6 +194,14 @@ class ApiService {
       _isRefreshing = false;
       _refreshQueue.clear();
     }
+  }
+
+  /// True when the refresh call itself was rejected (as opposed to a network
+  /// failure, where the session may still be fine once back online).
+  bool _isAuthFailure(DioException e) {
+    if (e.type == DioExceptionType.cancel) return true; // no refresh token
+    final status = e.response?.statusCode;
+    return status == 400 || status == 401 || status == 403;
   }
 
   InterceptorsWrapper _errorInterceptor() {
@@ -202,11 +221,9 @@ class ApiService {
   }
 
   String _extractErrorMessage(DioException error) {
-    if (error.response?.data is Map<String, dynamic>) {
-      final data = error.response!.data as Map<String, dynamic>;
-      return data['error'] as String? ??
-          data['message'] as String? ??
-          'An unexpected error occurred';
+    final serverMessage = serverErrorMessage(error.response?.data);
+    if (serverMessage != null) {
+      return serverMessage;
     }
 
     final androidLocalDevHint = _androidLocalDevHint(error.type);
@@ -253,4 +270,38 @@ class ApiService {
 
     return null;
   }
+}
+
+/// Reads the human-readable message from a NestJS error body
+/// (`{statusCode, message, error}`). `message` is the useful part: `error` is
+/// only the HTTP status name, e.g. "Unauthorized". Validation errors send
+/// `message` as a list, which is joined.
+@visibleForTesting
+String? serverErrorMessage(Object? body) {
+  if (body is! Map) return null;
+  final message = body['message'];
+  if (message is String && message.trim().isNotEmpty) return message;
+  if (message is List && message.isNotEmpty) {
+    return message.map((m) => _sentenceCase(m.toString())).join('\n');
+  }
+  final error = body['error'];
+  if (error is String && error.trim().isNotEmpty) return error;
+  return null;
+}
+
+String _sentenceCase(String s) =>
+    s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
+
+/// A message suitable for showing to the user for any error thrown by an API
+/// call (or anything else).
+String friendlyError(Object error) {
+  if (error is DioException) {
+    final inner = error.error;
+    if (inner is String && inner.isNotEmpty) return inner;
+    return serverErrorMessage(error.response?.data) ??
+        error.message ??
+        'Something went wrong. Please try again.';
+  }
+  final text = error.toString();
+  return text.startsWith('Exception: ') ? text.substring(11) : text;
 }

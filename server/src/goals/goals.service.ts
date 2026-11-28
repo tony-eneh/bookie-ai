@@ -117,18 +117,6 @@ export class GoalsService {
   ) {
     const goal = await this.findById(goalId, userId);
 
-    const contribution = await this.prisma.goalContribution.create({
-      data: {
-        goalId,
-        amount: dto.amount,
-        currency: dto.currency,
-        contributionDate: dto.contributionDate
-          ? new Date(dto.contributionDate)
-          : new Date(),
-        sourceType: dto.sourceType,
-      },
-    });
-
     const newCurrentAmount = Number(goal.currentAmount) + dto.amount;
     const status = this.calculateStatusFromValues(
       Number(goal.targetAmount),
@@ -137,18 +125,31 @@ export class GoalsService {
       goal.createdAt,
     );
 
-    await this.prisma.goal.update({
-      where: { id: goalId },
-      data: {
-        currentAmount: newCurrentAmount,
-        monthlyRequiredAmount: this.calcMonthlyRequired(
-          Number(goal.targetAmount),
-          newCurrentAmount,
-          goal.targetDate,
-        ),
-        status,
-      },
-    });
+    const [contribution] = await this.prisma.$transaction([
+      this.prisma.goalContribution.create({
+        data: {
+          goalId,
+          amount: dto.amount,
+          currency: dto.currency,
+          contributionDate: dto.contributionDate
+            ? new Date(dto.contributionDate)
+            : new Date(),
+          sourceType: dto.sourceType ?? 'MANUAL',
+        },
+      }),
+      this.prisma.goal.update({
+        where: { id: goalId },
+        data: {
+          currentAmount: newCurrentAmount,
+          monthlyRequiredAmount: this.calcMonthlyRequired(
+            Number(goal.targetAmount),
+            newCurrentAmount,
+            goal.targetDate,
+          ),
+          status,
+        },
+      }),
+    ]);
 
     return contribution;
   }

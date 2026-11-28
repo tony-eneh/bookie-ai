@@ -1,100 +1,67 @@
 # Bookie-AI Deployment
 
-## Platform
-- **Backend hosting:** Vercel (project: `server`)
-- **Backend public URL:** `https://server-snowy-nine-48.vercel.app/api`
-- **Deployment alias:** `https://server-snowy-nine-48.vercel.app`
-- **Inspect URL:** `https://vercel.com/tonyenehs-projects/server/DVW6ENmBajd3z77SfSXzTFGiHF83`
+Never put secret values (passwords, keys, connection strings) in this file:
+the repo is public. Secrets live only in Vercel project env vars.
+
+## API (`server/`)
+- **Hosting:** Vercel project `bookie-ai-api` (scope `tonyenehs-projects`),
+  Root Directory `server`, framework preset NestJS. Connected to this GitHub
+  repo: pushes to `main` deploy production, other branches get previews.
+- **Public URL:** https://bookie-ai-api.vercel.app/api
+- **API docs (Swagger):** https://bookie-ai-api.vercel.app/api/docs
+- The older `server` Vercel project (`server-snowy-nine-48.vercel.app`) is
+  superseded and can be deleted.
 
 ## Database
-- **Provider:** Neon (via Vercel Marketplace integration)
-- **Status:** Provisioned and connected to the Vercel `server` project
-- **Prisma migration applied:** `20260403133500_init`
-- **Migration command used:** `npx prisma migrate deploy`
+- **Provider:** Neon, via the Vercel Marketplace integration. Connection
+  details are injected into the `bookie-ai-api` env (`DATABASE_URL` and the
+  `NEON_*` variables).
+- **Migrations:** `server/prisma/migrations/`. Apply with
+  `npx prisma migrate deploy` using the production `DATABASE_URL`.
+- **Default categories:** created by the API on startup if missing (idempotent).
+  `prisma/seed.ts` is for local development only: it wipes every table.
 
-### Production DB connection details
-- **DATABASE_URL:** stored in Vercel project env
-- **DATABASE_URL_UNPOOLED:** stored in Vercel project env
-- **PGHOST:** `ep-crimson-grass-amytduiy-pooler.c-5.us-east-1.aws.neon.tech`
-- **PGHOST_UNPOOLED:** `ep-crimson-grass-amytduiy.c-5.us-east-1.aws.neon.tech`
-- **PGDATABASE / POSTGRES_DATABASE:** `neondb`
-- **PGUSER / POSTGRES_USER:** `neondb_owner`
-- **PGPASSWORD / POSTGRES_PASSWORD:** `npg_lHJ70Djmcwfk`
-- **NEON_PROJECT_ID:** `mute-mountain-03435319`
+## Runtime env vars (names only)
+Required: `DATABASE_URL`, `JWT_SECRET`, `JWT_EXPIRATION_SECONDS`,
+`JWT_REFRESH_EXPIRATION_DAYS`.
 
-## Redis
-- **Requested for Bull queues:** yes
-- **Actual status:** not provisioned
-- **Why:** Upstash/Vercel Redis provisioning was blocked by Marketplace terms acceptance flow during CLI setup
-- **Current production env value:** placeholder `redis://localhost:6379`
-- **Impact:** current backend code does **not** initialize Bull/Redis yet, so the deployed API works without Redis right now. If queue features are added/wired later, provision a real Redis instance first.
+Optional:
+- `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL`: real AI. Leave
+  `OPENAI_API_KEY` unset for mock mode.
+- `REDIS_URL`: queue for outgoing email. When unset or unreachable, email is
+  sent inline.
+- `RESEND_API_KEY`: sends email (password resets) through Resend. The
+  sender domain must be verified in Resend.
+- `MAIL_FROM`: optional sender, default `BookieAI <noreply@joypinness.com>`.
+- (`SMTP_*` still works as a fallback when `RESEND_API_KEY` is unset.)
+- `PASSWORD_RESET_URL`: optional. The reset email links to a page the API
+  serves itself (`/api/auth/reset-password`), built from the request host;
+  set this only to send users somewhere else. (`APP_URL` is no longer used.)
+- `GOOGLE_CLIENT_ID`: Google sign-in.
+- `FX_API_URL`: exchange rate source, e.g.
+  `https://api.exchangerate-api.com/v4/latest` (the base currency is
+  appended to the path; use `{base}` for other URL shapes).
+- `CRON_SECRET`: enables the daily job (`GET /api/jobs/daily`, scheduled in
+  `server/vercel.json`). Vercel sends it as a bearer token. Without it the
+  job endpoint returns 503 and nothing runs.
+- `CORS_MODE`, `CORS_ORIGINS`, `CORS_CREDENTIALS`: see `server/src/main.ts`.
+- `RESET_PASSWORD_EXPIRATION_MINUTES`.
+- `TOKEN_ENCRYPTION_KEY`: optional 32-byte base64 key for encrypting stored
+  OAuth tokens (connected accounts). Defaults to a key derived from
+  `JWT_SECRET`; changing either makes stored tokens unreadable.
 
-## Runtime env vars configured in Vercel
-- `DATABASE_URL`
-- `JWT_SECRET`
-- `JWT_EXPIRATION_SECONDS=900`
-- `JWT_REFRESH_EXPIRATION_DAYS=7`
-- `REDIS_URL=redis://localhost:6379`
-- `OPENAI_API_KEY=mock-mode-no-key-required`
-- `OPENAI_MODEL=gpt-4o-mini`
-- `FX_API_URL=https://api.exchangerate-api.com/v4/latest`
-- `CORS_ORIGINS=http://localhost:3000,http://localhost:5173,http://localhost:8080`
-- `CORS_CREDENTIALS=false`
-- `PORT=3000`
-
-## Production fixes made before deploy
-1. Added initial Prisma migration files under `server/prisma/migrations/`
-2. Fixed Prisma 7 generator/runtime mismatch by switching back to the legacy JS client generator (`provider = "prisma-client-js"`) and standard `@prisma/client` imports
-3. Added Prisma generation to the install/build flow so Vercel regenerates the client before TypeScript compilation
-4. Fixed the local production start command to use `node dist/src/main.js`
-5. Replaced `uuid` usage in auth service with Node `crypto.randomUUID()` for Vercel/CommonJS compatibility
-6. Updated Flutter mobile default API base URL to the deployed backend
-
-## Demo app credentials
-A demo user was created against production through the public register flow:
-- **Email:** `demo@bookieai.com`
-- **Password:** `demo123456`
-
-## Auth/API notes
-- `POST /api/auth/register` works with JSON body
-- `POST /api/auth/login` currently works with `application/x-www-form-urlencoded` body because it uses Passport Local strategy defaults
-- `GET /api/auth/me` verified successfully with a bearer token issued by production
-
-## Mobile app change
-Updated:
-- `mobile/lib/core/constants/api_constants.dart`
-
-New default:
-- `https://server-snowy-nine-48.vercel.app/api`
-
-## Known follow-ups
-1. Provision a real Redis instance if Bull queues are going to be enabled
-2. Tighten `CORS_ORIGINS` when the real frontend/mobile web origins are known
-3. Optionally make `/auth/login` accept JSON cleanly if that is preferred by the client
-4. Seed script still needs cleanup if you want a repeatable one-command production seed flow
-
-## Redeploy notes (2026-04-03)
-- Production alias refreshed successfully after the Prisma/NestJS compatibility fix
-- Latest production inspect URL: `https://vercel.com/tonyenehs-projects/server/6DQZ1a9TMigTSP2pZYJN5p6yoHrN`
-- Latest temporary production URL: `https://server-44fgbcptw-tonyenehs-projects.vercel.app`
-- Stable alias remains: `https://server-snowy-nine-48.vercel.app`
-
-## Quick verification commands
+## Quick verification
 ```bash
-curl -sS https://server-snowy-nine-48.vercel.app/api
+curl -sS https://bookie-ai-api.vercel.app/api/health
 
-curl -sS https://server-snowy-nine-48.vercel.app/api/auth/login \
-  -H 'content-type: application/x-www-form-urlencoded' \
-  --data 'email=demo@bookieai.com&password=demo123456'
-
-curl -sS https://server-snowy-nine-48.vercel.app/api/auth/me \
-  -H "authorization: Bearer <ACCESS_TOKEN>"
+curl -sS https://bookie-ai-api.vercel.app/api/auth/login   -H 'content-type: application/json'   -d '{"email":"you@example.com","password":"..."}'
 ```
 
 ## Landing page (`landing/`)
 Live at https://bookie-ai.joypinness.com (Vercel project `bookie-ai-landing`,
 scope `tonyenehs-projects`; DNS is on Vercel). Static HTML/CSS, no build step.
-Redeploy with `cd landing && vercel deploy --prod`. The Android download link
+The project is connected to this GitHub repo with Root Directory `landing`,
+so every push to `main` redeploys it automatically. The Android download link
 and its version/size label come from `landing/config.js`; while `apkUrl` is
 empty the download buttons just scroll to the download section.
 

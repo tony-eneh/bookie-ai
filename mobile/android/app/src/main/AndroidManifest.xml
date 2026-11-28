@@ -1,10 +1,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Talking to the assistant (speech_to_text asks at first use). -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <!-- Reading bank alert SMS (opt-in from Settings; asked at runtime).
+         Fine for direct APK installs; Google Play restricts this permission. -->
+    <uses-permission android:name="android.permission.READ_SMS"/>
     <application
         android:label="BookieAI"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher"
-        android:usesCleartextTraffic="true">
+        android:icon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -42,6 +46,13 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- Android 11+ package visibility for speech recognition and TTS. -->
+        <intent>
+            <action android:name="android.speech.RecognitionService"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE"/>
         </intent>
     </queries>
 </manifest>

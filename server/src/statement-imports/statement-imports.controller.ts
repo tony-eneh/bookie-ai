@@ -12,6 +12,7 @@ import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard.js';
 import { StatementImportsService } from './statement-imports.service.js';
 import { CreateStatementImportDto } from './dto/create-statement-import.dto.js';
+import { ImportCsvDto } from './dto/import-csv.dto.js';
 
 @ApiTags('statement-imports')
 @ApiBearerAuth()
@@ -33,6 +34,15 @@ export class StatementImportsController {
     @CurrentUser() user: { userId: string },
   ) {
     return this.statementImportsService.findById(id, user.userId);
+  }
+
+  @Post('csv')
+  @ApiOperation({ summary: "Import a bank's CSV statement export" })
+  importCsv(
+    @CurrentUser() user: { userId: string },
+    @Body() dto: ImportCsvDto,
+  ) {
+    return this.statementImportsService.importCsv(user.userId, dto);
   }
 
   @Post()

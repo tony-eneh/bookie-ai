@@ -1,3 +1,4 @@
+import 'package:bookie_ai/data/services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -5,7 +6,9 @@ import 'package:bookie_ai/core/theme/app_colors.dart';
 import 'package:bookie_ai/core/utils/currency_formatter.dart';
 import 'package:bookie_ai/core/utils/date_formatter.dart';
 import 'package:bookie_ai/data/models/transaction_model.dart';
+import 'package:bookie_ai/data/providers/auth_provider.dart';
 import 'package:bookie_ai/data/providers/transactions_provider.dart';
+import 'package:bookie_ai/features/transactions/widgets/add_transaction_sheet.dart';
 
 class TransactionDetailScreen extends ConsumerWidget {
   const TransactionDetailScreen({super.key, required this.transactionId});
@@ -14,56 +17,43 @@ class TransactionDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final transactionsAsync = ref.watch(transactionsProvider);
+    final async = ref.watch(transactionDetailProvider(transactionId));
 
-    return transactionsAsync.when(
+    return async.when(
       loading: () => const Scaffold(
         body: Center(child: CircularProgressIndicator(color: AppColors.accent)),
       ),
       error: (error, _) => Scaffold(
         appBar: AppBar(),
         body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.error_outline,
-                  size: 48, color: AppColors.textTertiary),
-              const SizedBox(height: 16),
-              Text(
-                'Could not load transaction',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: AppColors.textPrimary,
-                    ),
-              ),
-              const SizedBox(height: 24),
-              FilledButton.icon(
-                onPressed: () =>
-                    ref.read(transactionsProvider.notifier).fetchTransactions(),
-                icon: const Icon(Icons.refresh),
-                label: const Text('Retry'),
-              ),
-            ],
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.error_outline,
+                    size: 48, color: AppColors.textTertiary),
+                const SizedBox(height: 16),
+                Text(
+                  friendlyError(error),
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: AppColors.textPrimary,
+                      ),
+                ),
+                const SizedBox(height: 24),
+                FilledButton.icon(
+                  onPressed: () =>
+                      ref.invalidate(transactionDetailProvider(transactionId)),
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Retry'),
+                ),
+              ],
+            ),
           ),
         ),
       ),
-      data: (paginated) {
-        final transaction =
-            paginated.data.where((t) => t.id == transactionId).firstOrNull;
-        if (transaction == null) {
-          return Scaffold(
-            appBar: AppBar(),
-            body: Center(
-              child: Text(
-                'Transaction not found',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: AppColors.textPrimary,
-                    ),
-              ),
-            ),
-          );
-        }
-        return _TransactionDetailView(transaction: transaction);
-      },
+      data: (transaction) => _TransactionDetailView(transaction: transaction),
     );
   }
 }
@@ -75,6 +65,8 @@ class _TransactionDetailView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final primaryCurrency =
+        ref.watch(authProvider).user?.primaryCurrency ?? transaction.currency;
     final textTheme = Theme.of(context).textTheme;
     final isExpense = transaction.type == 'EXPENSE';
     final amountColor = isExpense ? AppColors.expense : AppColors.accent;
@@ -85,7 +77,21 @@ class _TransactionDetailView extends ConsumerWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.edit_outlined),
-            onPressed: () {},
+            tooltip: 'Edit',
+            onPressed: () async {
+              final saved = await showModalBottomSheet<bool>(
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: AppColors.primary,
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                ),
+                builder: (_) => AddTransactionSheet(existing: transaction),
+              );
+              if (saved == true) {
+                ref.invalidate(transactionDetailProvider(transaction.id));
+              }
+            },
           ),
           IconButton(
             icon: const Icon(Icons.delete_outline, color: AppColors.expense),
@@ -132,10 +138,12 @@ class _TransactionDetailView extends ConsumerWidget {
                     color: AppColors.textTertiary,
                   ),
                 ),
-                if (transaction.convertedAmount != null) ...[
+                // convertedAmount is in the user's primary currency.
+                if (transaction.convertedAmount != null &&
+                    primaryCurrency != transaction.currency) ...[
                   const SizedBox(height: 4),
                   Text(
-                    '≈ ${CurrencyFormatter.format(transaction.convertedAmount!, currency: 'USD')}',
+                    '≈ ${CurrencyFormatter.format(transaction.convertedAmount!, currency: primaryCurrency)}',
                     style: textTheme.bodyMedium?.copyWith(
                       color: AppColors.textSecondary,
                     ),
@@ -288,7 +296,7 @@ class _TransactionDetailView extends ConsumerWidget {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Failed to delete: $e'),
+              content: Text('Failed to delete: ${friendlyError(e)}'),
               backgroundColor: AppColors.expense,
             ),
           );

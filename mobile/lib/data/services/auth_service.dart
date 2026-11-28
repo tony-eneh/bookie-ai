@@ -12,14 +12,18 @@ class AuthService {
 
   AuthService(this._api);
 
+  /// [onboarding] carries choices made before the account existed
+  /// (primaryCurrency, incomeStyle, financialPersonality).
   Future<User> register(
     String email,
     String fullName,
-    String password,
-  ) async {
+    String password, {
+    Map<String, String> onboarding = const {},
+  }) async {
     final response = await _api.post(
       ApiConstants.register,
       data: {
+        ...onboarding,
         'email': email,
         'fullName': fullName,
         'password': password,
@@ -53,9 +57,19 @@ class AuthService {
     return User.fromJson(data['user'] as Map<String, dynamic>);
   }
 
+  /// Revokes the refresh token on the server, then clears local tokens even
+  /// if the request fails (e.g. offline).
   Future<void> logout() async {
     try {
-      await _api.post(ApiConstants.logout);
+      final refreshToken = await _api.getRefreshToken();
+      if (refreshToken != null) {
+        await _api.post(
+          ApiConstants.logout,
+          data: {'refreshToken': refreshToken},
+        );
+      }
+    } catch (_) {
+      // Best effort: the user is signed out locally regardless.
     } finally {
       await _api.clearTokens();
     }
@@ -66,8 +80,25 @@ class AuthService {
     return User.fromJson(response.data['data'] as Map<String, dynamic>);
   }
 
-  Future<void> refreshToken() async {
-    await _api.hasValidToken();
+  Stream<void> get onSessionExpired => _api.onSessionExpired;
+
+  /// Emails a reset link if the account exists (the server never says).
+  Future<void> requestPasswordReset(String email) async {
+    await _api.post(ApiConstants.forgotPassword, data: {'email': email});
+  }
+
+  /// PATCH /users/me (fullName, country, language, primaryCurrency).
+  Future<User> updateProfile(Map<String, dynamic> data) async {
+    final response = await _api.patch(ApiConstants.userProfile, data: data);
+    return User.fromJson(response.data['data'] as Map<String, dynamic>);
+  }
+
+  /// PATCH /users/preferences (notificationMode, financialPersonality,
+  /// fxPreference, incomeStyle).
+  Future<User> updatePreferences(Map<String, dynamic> data) async {
+    final response =
+        await _api.patch(ApiConstants.userPreferences, data: data);
+    return User.fromJson(response.data['data'] as Map<String, dynamic>);
   }
 
   Future<bool> isAuthenticated() => _api.hasValidToken();

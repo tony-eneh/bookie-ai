@@ -1,13 +1,27 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { FxRatesService } from '../fx-rates/fx-rates.service.js';
 import { CreateBudgetDto } from './dto/create-budget.dto.js';
 import { UpdateBudgetDto } from './dto/update-budget.dto.js';
 
 @Injectable()
 export class BudgetsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private fxRates: FxRatesService,
+  ) {}
+
+  /** Rejects categories that are neither the user's own nor built-in. */
+  private async assertCategoryUsable(userId: string, categoryId?: string | null) {
+    if (!categoryId) return;
+    const ok = await this.prisma.category.count({
+      where: { id: categoryId, OR: [{ userId }, { isDefault: true }] },
+    });
+    if (!ok) throw new NotFoundException('Category not found');
+  }
 
   async create(userId: string, dto: CreateBudgetDto) {
+    await this.assertCategoryUsable(userId, dto.categoryId);
     return this.prisma.budget.create({
       data: {
         userId,
@@ -53,6 +67,7 @@ export class BudgetsService {
 
   async update(id: string, userId: string, dto: UpdateBudgetDto) {
     await this.findById(id, userId);
+    await this.assertCategoryUsable(userId, dto.categoryId);
 
     const data: Record<string, unknown> = {};
     if (dto.name !== undefined) data.name = dto.name;
@@ -90,7 +105,7 @@ export class BudgetsService {
     return this.calculateProgress(budget);
   }
 
-  private async calculateProgress(budget: {
+  async calculateProgress(budget: {
     id: string;
     userId: string;
     categoryId: string | null;
@@ -113,8 +128,12 @@ export class BudgetsService {
 
     const transactions = await this.prisma.transaction.findMany({ where });
 
+    // Spending in other currencies counts at today's rate.
+    const convert = await this.fxRates.loadConverter(
+      transactions.map((tx) => [tx.currency, budget.currency] as [string, string]),
+    );
     const amountUsed = transactions.reduce(
-      (sum, tx) => sum + Number(tx.amount),
+      (sum, tx) => sum + convert(Number(tx.amount), tx.currency, budget.currency),
       0,
     );
 

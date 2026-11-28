@@ -16,6 +16,7 @@ class Transaction {
   final String? subcategory;
   final String sourceType; // SMS, EMAIL, VOICE, MANUAL, AI_IMPORT
   final String? note;
+  final bool isRecurring;
   final double parseConfidence;
   final double categoryConfidence;
   final String? accountId;
@@ -38,6 +39,7 @@ class Transaction {
     this.subcategory,
     required this.sourceType,
     this.note,
+    this.isRecurring = false,
     required this.parseConfidence,
     required this.categoryConfidence,
     this.accountId,
@@ -64,6 +66,7 @@ class Transaction {
       subcategory: json['subcategory'] as String?,
       sourceType: json['sourceType'] as String,
       note: json['note'] as String?,
+      isRecurring: json['isRecurringGuess'] as bool? ?? false,
       parseConfidence: parseDouble(json['parseConfidence'], fallback: 1.0),
       categoryConfidence:
           parseDouble(json['categoryConfidence'], fallback: 1.0),
@@ -91,6 +94,7 @@ class Transaction {
       if (subcategory != null) 'subcategory': subcategory,
       'sourceType': sourceType,
       if (note != null) 'note': note,
+      'isRecurringGuess': isRecurring,
       'parseConfidence': parseConfidence,
       'categoryConfidence': categoryConfidence,
       if (accountId != null) 'accountId': accountId,

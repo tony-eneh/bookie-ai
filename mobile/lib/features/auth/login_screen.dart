@@ -19,6 +19,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _obscurePassword = true;
 
   @override
+  void initState() {
+    super.initState();
+    // Explain why the user landed here, e.g. after their session expired.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final auth = ref.read(authProvider);
+      if (mounted &&
+          auth.status == AuthStatus.unauthenticated &&
+          auth.error != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(auth.error!),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    });
+  }
+
+  @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
@@ -143,7 +162,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton(
-                        onPressed: authState.isLoading ? null : () {},
+                        onPressed: authState.isLoading
+                            ? null
+                            : () => context.push(
+                                  '/forgot-password',
+                                  extra: _emailController.text.trim(),
+                                ),
                         child: const Text(
                           'Forgot Password?',
                           style: TextStyle(

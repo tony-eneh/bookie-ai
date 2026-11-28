@@ -40,6 +40,10 @@ class Budget {
   });
 
   factory Budget.fromJson(Map<String, dynamic> json) {
+    // GET /budgets nests progress under "progress"; accept flat fields too.
+    final progress = json['progress'] is Map<String, dynamic>
+        ? json['progress'] as Map<String, dynamic>
+        : json;
     return Budget(
       id: json['id'] as String,
       name: json['name'] as String,
@@ -56,11 +60,11 @@ class Budget {
           : null,
       isActive: json['isActive'] as bool? ?? true,
       createdAt: DateTime.parse(json['createdAt'] as String),
-      amountUsed: parseNullableDouble(json['amountUsed']),
-      amountRemaining: parseNullableDouble(json['amountRemaining']),
-      percentageUsed: parseNullableDouble(json['percentageUsed']),
-      isOverspent: json['isOverspent'] as bool?,
-      projectedOverspend: parseNullableDouble(json['projectedOverspend']),
+      amountUsed: parseNullableDouble(progress['amountUsed']),
+      amountRemaining: parseNullableDouble(progress['amountRemaining']),
+      percentageUsed: parseNullableDouble(progress['percentageUsed']),
+      isOverspent: progress['isOverspent'] as bool?,
+      projectedOverspend: parseNullableDouble(progress['projectedOverspend']),
     );
   }
 

@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:bookie_ai/data/services/api_service.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bookie_ai/data/models/user_model.dart';
@@ -37,8 +40,25 @@ class AuthNotifier extends StateNotifier<AuthState> {
   final AuthService _authService;
   final StorageService _storageService;
 
+  late final StreamSubscription<void> _sessionSub;
+
   AuthNotifier(this._authService, this._storageService)
-      : super(const AuthState());
+      : super(const AuthState()) {
+    _sessionSub = _authService.onSessionExpired.listen((_) => _signedOut(
+          message: 'Your session has expired. Please sign in again.',
+        ));
+  }
+
+  @override
+  void dispose() {
+    _sessionSub.cancel();
+    super.dispose();
+  }
+
+  Future<void> _signedOut({String? message}) async {
+    await _storageService.clearSession();
+    state = AuthState(status: AuthStatus.unauthenticated, error: message);
+  }
 
   Future<void> checkAuthStatus() async {
     state = state.copyWith(status: AuthStatus.loading);
@@ -53,6 +73,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
       await _storageService.saveUser(user);
       state = state.copyWith(status: AuthStatus.authenticated, user: user);
     } on DioException {
+      // A failed refresh clears the tokens: the session is gone. Otherwise
+      // this is most likely a network problem, so fall back to the cache.
+      if (!await _authService.isAuthenticated()) {
+        await _signedOut();
+        return;
+      }
       final cachedUser = await _storageService.getUser();
       if (cachedUser != null) {
         state = state.copyWith(
@@ -74,7 +100,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     } on DioException catch (e) {
       state = state.copyWith(
         status: AuthStatus.error,
-        error: e.error?.toString() ?? 'Login failed',
+        error: friendlyError(e),
       );
     }
   }
@@ -86,13 +112,27 @@ class AuthNotifier extends StateNotifier<AuthState> {
   ) async {
     state = state.copyWith(status: AuthStatus.loading);
     try {
-      final user = await _authService.register(email, fullName, password);
+      final onboarding = <String, String>{
+        for (final (key, field) in const [
+          ('currency', 'primaryCurrency'),
+          ('income_style', 'incomeStyle'),
+          ('financial_personality', 'financialPersonality'),
+        ])
+          if (_storageService.getOnboardingPreference(key) case final value?)
+            field: value,
+      };
+      final user = await _authService.register(
+        email,
+        fullName,
+        password,
+        onboarding: onboarding,
+      );
       await _storageService.saveUser(user);
       state = state.copyWith(status: AuthStatus.authenticated, user: user);
     } on DioException catch (e) {
       state = state.copyWith(
         status: AuthStatus.error,
-        error: e.error?.toString() ?? 'Registration failed',
+        error: friendlyError(e),
       );
     }
   }
@@ -102,9 +142,18 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       await _authService.logout();
     } finally {
-      await _storageService.clearAll();
-      state = const AuthState(status: AuthStatus.unauthenticated);
+      await _signedOut();
     }
+  }
+
+  /// Saves profile fields (e.g. primaryCurrency) to the server.
+  Future<void> updateProfile(Map<String, dynamic> data) async {
+    await updateUser(await _authService.updateProfile(data));
+  }
+
+  /// Saves preference fields (e.g. notificationMode) to the server.
+  Future<void> updatePreferences(Map<String, dynamic> data) async {
+    await updateUser(await _authService.updatePreferences(data));
   }
 
   Future<void> updateUser(User user) async {

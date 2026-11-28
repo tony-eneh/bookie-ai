@@ -2,7 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
-  InternalServerErrorException,
+  ServiceUnavailableException,
   Logger,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -10,7 +10,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { hash, compare } from 'bcryptjs';
-import { OAuth2Client } from 'google-auth-library';
+import { OAuth2Client, type TokenPayload } from 'google-auth-library';
 import { EmailQueueService } from '../mail/email-queue.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { UsersService } from '../users/users.service.js';
@@ -38,30 +38,34 @@ export class AuthService {
 
     const passwordHash = await hash(dto.password, 12);
 
-    const user = await this.prisma.user.create({
-      data: {
-        email: dto.email,
-        passwordHash,
-        fullName: dto.fullName,
-      },
-    });
+    const user = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({
+        data: {
+          email: dto.email.trim().toLowerCase(),
+          passwordHash,
+          fullName: dto.fullName,
+          primaryCurrency: dto.primaryCurrency,
+          incomeStyle: dto.incomeStyle,
+          financialPersonality: dto.financialPersonality,
+          onboardingCompleted: true,
+        },
+      });
 
-    // Create default account for the user
-    await this.prisma.account.create({
-      data: {
-        userId: user.id,
-        name: 'Main Account',
-        type: 'BANK',
-        currency: user.primaryCurrency,
-        isPrimary: true,
-      },
+      // Every user starts with one account in their own currency.
+      await tx.account.create({
+        data: {
+          userId: created.id,
+          name: 'Main Account',
+          type: 'BANK',
+          currency: created.primaryCurrency,
+          isPrimary: true,
+        },
+      });
+      return created;
     });
 
     const tokens = await this.generateTokens(user.id, user.email);
-    return {
-      user: { id: user.id, email: user.email, fullName: user.fullName },
-      ...tokens,
-    };
+    return { user: publicUser(user), ...tokens };
   }
 
   async login(userId: string) {
@@ -71,10 +75,7 @@ export class AuthService {
     }
 
     const tokens = await this.generateTokens(user.id, user.email);
-    return {
-      user: { id: user.id, email: user.email, fullName: user.fullName },
-      ...tokens,
-    };
+    return { user: publicUser(user), ...tokens };
   }
 
   async validateUser(email: string, password: string) {
@@ -118,7 +119,11 @@ export class AuthService {
     return { message: 'Logged out successfully' };
   }
 
-  async forgotPassword(email: string) {
+  /**
+   * [defaultPageUrl] is the reset page served by this API; PASSWORD_RESET_URL
+   * overrides it (e.g. for a future web app).
+   */
+  async forgotPassword(email: string, defaultPageUrl?: string) {
     const user = await this.usersService.findByEmail(email);
     if (!user) {
       return { message: 'If the email exists, a reset link has been sent' };
@@ -130,8 +135,11 @@ export class AuthService {
     );
     const resetToken = randomBytes(32).toString('hex');
     const tokenHash = this.hashOpaqueToken(resetToken);
-    const appUrl = (this.configService.get<string>('APP_URL') ?? 'http://localhost:3000').replace(/\/$/, '');
-    const resetUrl = `${appUrl}/reset-password?token=${resetToken}`;
+    const pageUrl =
+      this.configService.get<string>('PASSWORD_RESET_URL') ??
+      defaultPageUrl ??
+      'http://localhost:3000/api/auth/reset-password';
+    const resetUrl = `${pageUrl}?token=${resetToken}`;
 
     await this.prisma.$transaction(async (tx) => {
       await tx.passwordResetToken.deleteMany({
@@ -203,16 +211,22 @@ export class AuthService {
       .filter(Boolean);
 
     if (allowedClientIds.length === 0) {
-      throw new InternalServerErrorException(
-        'GOOGLE_CLIENT_ID must be configured before Google sign-in can be used',
+      throw new ServiceUnavailableException(
+        'Google sign-in is not available right now',
       );
     }
 
-    const ticket = await this.googleClient.verifyIdToken({
-      idToken: dto.idToken,
-      audience: allowedClientIds,
-    });
-    const payload = ticket.getPayload();
+    let payload: TokenPayload | undefined;
+    try {
+      const ticket = await this.googleClient.verifyIdToken({
+        idToken: dto.idToken,
+        audience: allowedClientIds,
+      });
+      payload = ticket.getPayload();
+    } catch {
+      // Expired, malformed or wrong-audience tokens are the client's problem.
+      throw new UnauthorizedException('Invalid Google sign-in token');
+    }
 
     if (!payload?.email || !payload.email_verified) {
       throw new UnauthorizedException('Google account email is not verified');
@@ -228,7 +242,7 @@ export class AuthService {
       user = await this.prisma.$transaction(async (tx) => {
         const createdUser = await tx.user.create({
           data: {
-            email: payload.email!,
+            email: payload.email!.toLowerCase(),
             fullName: dto.fullName ?? payload.name ?? 'Google User',
           },
         });
@@ -324,4 +338,13 @@ export class AuthService {
 
     return parsedValue;
   }
+}
+
+/** The user's profile as returned to clients (never the password hash). */
+function publicUser<T extends { passwordHash?: string | null }>(
+  user: T,
+): Omit<T, 'passwordHash'> {
+  const rest = { ...user };
+  delete rest.passwordHash;
+  return rest;
 }

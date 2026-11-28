@@ -1,11 +1,17 @@
+import 'package:bookie_ai/data/services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bookie_ai/core/theme/app_colors.dart';
 import 'package:bookie_ai/core/constants/app_constants.dart';
+import 'package:bookie_ai/data/models/goal_model.dart';
 import 'package:bookie_ai/data/providers/goals_provider.dart';
+import 'package:bookie_ai/data/providers/auth_provider.dart';
 
+/// Creates a goal, or edits [existing] when given.
 class CreateGoalSheet extends ConsumerStatefulWidget {
-  const CreateGoalSheet({super.key});
+  const CreateGoalSheet({super.key, this.existing});
+
+  final Goal? existing;
 
   @override
   ConsumerState<CreateGoalSheet> createState() => _CreateGoalSheetState();
@@ -21,6 +27,26 @@ class _CreateGoalSheetState extends ConsumerState<CreateGoalSheet> {
   DateTime _targetDate = DateTime.now().add(const Duration(days: 180));
   bool _isLoading = false;
 
+  bool get _isEdit => widget.existing != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final g = widget.existing;
+    if (g != null) {
+      _titleController.text = g.title;
+      _descriptionController.text = g.description ?? '';
+      _amountController.text = g.targetAmount.toStringAsFixed(
+        g.targetAmount.truncateToDouble() == g.targetAmount ? 0 : 2,
+      );
+      _currency = g.targetCurrency;
+      _priority = g.priority;
+      _targetDate = g.targetDate.toLocal();
+    } else {
+      _currency = ref.read(authProvider).user?.primaryCurrency ?? _currency;
+    }
+  }
+
   @override
   void dispose() {
     _titleController.dispose();
@@ -34,21 +60,26 @@ class _CreateGoalSheetState extends ConsumerState<CreateGoalSheet> {
 
     setState(() => _isLoading = true);
     try {
-      await ref.read(goalsProvider.notifier).createGoal({
+      final data = {
         'title': _titleController.text.trim(),
-        'description': _descriptionController.text.trim().isNotEmpty
-            ? _descriptionController.text.trim()
-            : null,
+        if (_descriptionController.text.trim().isNotEmpty)
+          'description': _descriptionController.text.trim(),
         'targetAmount': double.parse(_amountController.text),
         'targetCurrency': _currency,
-        'targetDate': _targetDate.toIso8601String(),
+        'targetDate': _targetDate.toUtc().toIso8601String(),
         'priority': _priority,
-      });
-      if (mounted) Navigator.pop(context);
+      };
+      final notifier = ref.read(goalsProvider.notifier);
+      if (_isEdit) {
+        await notifier.updateGoal(widget.existing!.id, data);
+      } else {
+        await notifier.createGoal(data);
+      }
+      if (mounted) Navigator.pop(context, true);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to create goal: $e')),
+          SnackBar(content: Text('Could not save goal: ${friendlyError(e)}')),
         );
       }
     } finally {
@@ -79,9 +110,9 @@ class _CreateGoalSheetState extends ConsumerState<CreateGoalSheet> {
                 ),
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Create Goal',
-                style: TextStyle(
+              Text(
+                _isEdit ? 'Edit Goal' : 'Create Goal',
+                style: const TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
@@ -203,7 +234,7 @@ class _CreateGoalSheetState extends ConsumerState<CreateGoalSheet> {
                             color: Colors.white,
                           ),
                         )
-                      : const Text('Create Goal'),
+                      : Text(_isEdit ? 'Save changes' : 'Create Goal'),
                 ),
               ),
             ],

@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_tts/flutter_tts.dart';
+import 'package:speech_to_text/speech_recognition_result.dart';
+import 'package:speech_to_text/speech_to_text.dart';
+import 'package:bookie_ai/core/utils/currency_formatter.dart';
+import 'package:bookie_ai/core/utils/json_parsers.dart';
 import 'package:bookie_ai/core/theme/app_colors.dart';
 import 'package:bookie_ai/data/services/api_service.dart';
 import 'package:bookie_ai/core/constants/api_constants.dart';
@@ -8,12 +13,71 @@ class _Message {
   final String text;
   final bool isUser;
   final DateTime timestamp;
+  final List<String> suggestions;
 
   const _Message({
     required this.text,
     required this.isUser,
     required this.timestamp,
+    this.suggestions = const [],
   });
+}
+
+/// Parses the `{answer, suggestions}` payload returned by the assistant
+/// endpoints (inside the `{data: ...}` envelope).
+@visibleForTesting
+({String answer, List<String> suggestions}) parseAssistantReply(
+  Object? body,
+) {
+  final payload = body is Map && body['data'] is Map ? body['data'] : body;
+  if (payload is! Map) {
+    return (answer: _fallbackReply, suggestions: const <String>[]);
+  }
+  final answer = payload['answer'] ?? payload['response'];
+  final suggestions = payload['suggestions'];
+  return (
+    answer: answer is String && answer.trim().isNotEmpty
+        ? answer
+        : _fallbackReply,
+    suggestions: suggestions is List
+        ? suggestions.map((s) => s.toString()).toList()
+        : const <String>[],
+  );
+}
+
+const _fallbackReply = "I'm sorry, I couldn't process that right now.";
+
+/// "I spent 4,500 on lunch", "paid 20k for fuel", "got 150000 from Emeka":
+/// statements to record, rather than questions to answer.
+@visibleForTesting
+bool looksLikeTransaction(String text) {
+  final t = text.toLowerCase().trim();
+  if (t.endsWith('?') || !RegExp(r'\d').hasMatch(t)) return false;
+  return RegExp(
+    r'\b(spent|spend|paid|pay|bought|buy|got paid|received|earned|sent|transferred|log)\b',
+  ).hasMatch(t);
+}
+
+/// Bookie's reply after POST /ingestion/voice-log.
+@visibleForTesting
+String describeLoggedTransaction(Object? body) {
+  final data = body is Map && body['data'] is Map ? body['data'] as Map : body;
+  if (data is! Map || data['transaction'] is! Map) return _fallbackReply;
+  final tx = data['transaction'] as Map;
+  final amount = CurrencyFormatter.format(
+    parseDouble(tx['amount']),
+    currency: tx['currency'] as String? ?? 'USD',
+  );
+  if (data['duplicate'] == true) {
+    return 'That one is already recorded ($amount).';
+  }
+  final category = (tx['category'] as Map?)?['name'] as String?;
+  final direction = tx['type'] == 'INCOME' ? 'income' : 'expense';
+  final logged = category == null
+      ? 'Logged $amount as an $direction.'
+      : 'Logged $amount under $category.';
+  final question = (data['clarification'] as Map?)?['questionText'] as String?;
+  return question == null ? logged : '$logged $question';
 }
 
 class AssistantScreen extends ConsumerStatefulWidget {
@@ -31,6 +95,9 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen>
   bool _isLoading = false;
   bool _isListening = false;
   late AnimationController _pulseController;
+  final _speech = SpeechToText();
+  final _tts = FlutterTts();
+  bool _speechReady = false;
 
   final _suggestions = [
     'How much did I spend this week?',
@@ -49,7 +116,8 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen>
     );
     _messages.add(_Message(
       text:
-          "Hi! I'm your financial assistant. Ask me anything about your money, or tap the mic to speak.",
+          "Hi! Ask me anything about your money, or tell me what you spent "
+          "(\"I spent 4,500 on lunch\"). Tap the mic to talk.",
       isUser: false,
       timestamp: DateTime.now(),
     ));
@@ -57,15 +125,21 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen>
 
   @override
   void dispose() {
+    _speech.cancel();
+    _tts.stop();
     _controller.dispose();
     _scrollController.dispose();
     _pulseController.dispose();
     super.dispose();
   }
 
-  Future<void> _sendMessage(String text) async {
+  /// Sends a question to the assistant, or records a transaction when the
+  /// text is a statement like "I spent 4,500 on lunch". Spoken replies are
+  /// read aloud when [spoken] is true.
+  Future<void> _sendMessage(String text, {bool spoken = false}) async {
     if (text.trim().isEmpty) return;
     _controller.clear();
+    final isLog = looksLikeTransaction(text);
 
     setState(() {
       _messages.add(_Message(
@@ -79,26 +153,37 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen>
 
     try {
       final api = ref.read(apiServiceProvider);
-      final response = await api.post(
-        ApiConstants.assistantChat,
-        data: {'message': text.trim()},
-      );
-      final data = response.data;
-      final reply = data['data']?['response'] ??
-          data['response'] ??
-          "I'm sorry, I couldn't process that right now.";
+      final ({String answer, List<String> suggestions}) reply;
+      if (isLog) {
+        final response = await api.post(
+          ApiConstants.voiceLog,
+          data: {'text': text.trim()},
+        );
+        reply = (
+          answer: describeLoggedTransaction(response.data),
+          suggestions: const ['How much did I spend this week?'],
+        );
+      } else {
+        final response = await api.post(
+          ApiConstants.assistantChat,
+          data: {'message': text.trim()},
+        );
+        reply = parseAssistantReply(response.data);
+      }
 
       setState(() {
         _messages.add(_Message(
-          text: reply.toString(),
+          text: reply.answer,
           isUser: false,
           timestamp: DateTime.now(),
+          suggestions: reply.suggestions,
         ));
       });
+      if (spoken) await _tts.speak(reply.answer);
     } catch (e) {
       setState(() {
         _messages.add(_Message(
-          text: "Sorry, something went wrong. Please try again.",
+          text: friendlyError(e),
           isUser: false,
           timestamp: DateTime.now(),
         ));
@@ -121,20 +206,60 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen>
     });
   }
 
-  void _toggleListening() {
+  void _setListening(bool value) {
+    if (!mounted) return;
     setState(() {
-      _isListening = !_isListening;
-      if (_isListening) {
+      _isListening = value;
+      if (value) {
         _pulseController.repeat(reverse: true);
       } else {
         _pulseController.stop();
         _pulseController.reset();
       }
     });
+  }
 
-    if (!_isListening) {
-      _sendMessage('What is my spending summary?');
+  Future<void> _toggleListening() async {
+    if (_isListening) {
+      await _speech.stop(); // the final result then sends the message
+      _setListening(false);
+      return;
     }
+    await _tts.stop();
+    if (!_speechReady) {
+      _speechReady = await _speech.initialize(
+        onStatus: (status) {
+          if (status == 'done' || status == 'notListening') {
+            _setListening(false);
+          }
+        },
+        onError: (_) => _setListening(false),
+      );
+    }
+    if (!_speechReady) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+            'Voice input needs microphone access and a speech service. '
+            'You can type instead.',
+          ),
+        ));
+      }
+      return;
+    }
+    _setListening(true);
+    await _speech.listen(
+      onResult: (SpeechRecognitionResult result) {
+        setState(() => _controller.text = result.recognizedWords);
+        if (result.finalResult) {
+          _setListening(false);
+          _sendMessage(result.recognizedWords, spoken: true);
+        }
+      },
+      listenFor: const Duration(seconds: 30),
+      pauseFor: const Duration(seconds: 3),
+      listenOptions: SpeechListenOptions(partialResults: true),
+    );
   }
 
   @override
@@ -184,7 +309,9 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen>
                       side: BorderSide(
                         color: AppColors.accent.withValues(alpha: 0.3),
                       ),
-                      onPressed: () => _sendMessage(s),
+                      onPressed: () => s == 'Log an expense'
+                          ? setState(() => _controller.text = 'I spent ')
+                          : _sendMessage(s),
                     ))
                 .toList(),
           ),
@@ -198,7 +325,36 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen>
       controller: _scrollController,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       itemCount: _messages.length,
-      itemBuilder: (context, index) => _buildBubble(_messages[index]),
+      itemBuilder: (context, index) {
+        final message = _messages[index];
+        final isLast = index == _messages.length - 1;
+        if (!isLast || message.isUser || message.suggestions.isEmpty) {
+          return _buildBubble(message);
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildBubble(message),
+            Padding(
+              padding: const EdgeInsets.only(top: 4, bottom: 8),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: message.suggestions
+                    .map((s) => ActionChip(
+                          label: Text(s, style: const TextStyle(fontSize: 13)),
+                          backgroundColor: AppColors.surface,
+                          side: BorderSide(
+                            color: AppColors.accent.withValues(alpha: 0.3),
+                          ),
+                          onPressed: _isLoading ? null : () => _sendMessage(s),
+                        ))
+                    .toList(),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 

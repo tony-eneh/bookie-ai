@@ -57,7 +57,7 @@ android {
         }
 
         release {
-            // Falls back to debug keys when key.properties is absent (e.g. CI).
+            // Debug keys only for local runs; see the release guard below.
             signingConfig = signingConfigs.findByName("release")
                 ?: signingConfigs.getByName("debug")
         }
@@ -70,4 +70,23 @@ dependencies {
 
 flutter {
     source = "../.."
+}
+
+// Refuse to produce a debug-signed release APK/AAB by accident: such a build
+// can't be installed over the real app and can never be updated. Set
+// ALLOW_DEBUG_SIGNED_RELEASE=1 for a throwaway local release build.
+gradle.taskGraph.whenReady {
+    val buildsRelease = allTasks.any {
+        (it.name.startsWith("assemble") || it.name.startsWith("bundle")) &&
+            it.name.endsWith("Release")
+    }
+    if (buildsRelease && keystoreProperties.isEmpty &&
+        System.getenv("ALLOW_DEBUG_SIGNED_RELEASE") == null
+    ) {
+        throw GradleException(
+            "android/key.properties is missing, so this release build would be " +
+                "debug-signed. See DEPLOYMENT.md (Mobile) or set " +
+                "ALLOW_DEBUG_SIGNED_RELEASE=1."
+        )
+    }
 }

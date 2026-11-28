@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { UsersModule } from './users/users.module.js';
@@ -17,10 +19,16 @@ import { AssistantModule } from './assistant/assistant.module.js';
 import { ConnectedAccountsModule } from './connected-accounts/connected-accounts.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
 import { StatementImportsModule } from './statement-imports/statement-imports.module.js';
+import { AppController } from './app.controller.js';
+import { IncomeTargetsModule } from './income-targets/income-targets.module.js';
+import { JobsModule } from './jobs/jobs.module.js';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    // Per-IP limits. In-memory, so on serverless each instance counts
+    // separately: a speed bump against brute force, not a hard quota.
+    ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 120 }]),
     PrismaModule,
     AiModule,
     AuthModule,
@@ -38,6 +46,10 @@ import { StatementImportsModule } from './statement-imports/statement-imports.mo
     ConnectedAccountsModule,
     NotificationsModule,
     StatementImportsModule,
+    IncomeTargetsModule,
+    JobsModule,
   ],
+  controllers: [AppController],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}

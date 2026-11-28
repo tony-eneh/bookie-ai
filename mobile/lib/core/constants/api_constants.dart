@@ -5,7 +5,9 @@ abstract final class ApiConstants {
   static const String defaultBaseUrl = 'https://bookie-ai-api.vercel.app/api';
 
   static String? _dotenvValue(String key) {
-    if (!dotenv.isInitialized) {
+    // A developer's local .env (localhost URLs) must never steer a release
+    // build. Release builds use --dart-define overrides or the default.
+    if (kReleaseMode || !dotenv.isInitialized) {
       return null;
     }
 
@@ -50,11 +52,15 @@ abstract final class ApiConstants {
   static const String refresh = '/auth/refresh';
   static const String logout = '/auth/logout';
   static const String me = '/auth/me';
+  static const String forgotPassword = '/auth/forgot-password';
 
   // Accounts
   static const String accounts = '/accounts';
   static String account(String id) => '/accounts/$id';
   static String reconcileAccount(String id) => '/accounts/$id/reconcile';
+  static String accountReconciliations(String id) =>
+      '/accounts/$id/reconciliations';
+  static const String importStatementCsv = '/statement-imports/csv';
 
   // Transactions
   static const String transactions = '/transactions';
@@ -100,6 +106,11 @@ abstract final class ApiConstants {
   static const String readAllNotifications = '/notifications/read-all';
   static const String unreadCount = '/notifications/unread-count';
 
+  // Income targets
+  static const String incomeTargets = '/income-targets';
+  static const String currentIncomeTarget = '/income-targets/current';
+  static String incomeTarget(String id) => '/income-targets/$id';
+
   // Assistant
   static const String assistantChat = '/assistant/chat';
   static const String voiceQuery = '/assistant/voice-query';
@@ -115,4 +126,6 @@ abstract final class ApiConstants {
   // Users
   static const String userProfile = '/users/me';
   static const String userPreferences = '/users/preferences';
+  static const String userExport = '/users/me/export';
+  static const String userDelete = '/users/me/delete';
 }

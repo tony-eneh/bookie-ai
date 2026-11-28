@@ -183,15 +183,16 @@ class GoalProjection {
     return GoalProjection(
       monthsRemaining: parseDouble(json['monthsRemaining']),
       currentMonthlyPace:
-          parseDouble(json['currentMonthlyPace']),
-      requiredMonthlyAmount:
-          parseDouble(json['requiredMonthlyAmount']),
+          parseDouble(json['currentPace'] ?? json['currentMonthlyPace']),
+      requiredMonthlyAmount: parseDouble(
+        json['requiredMonthlySavings'] ?? json['requiredMonthlyAmount'],
+      ),
       projectedCompletionDate: json['projectedCompletionDate'] != null
           ? DateTime.parse(json['projectedCompletionDate'] as String)
           : null,
       requiredMonthlyIncome:
           parseNullableDouble(json['requiredMonthlyIncome']),
-      coaching: json['coaching'] as String,
+      coaching: json['coaching'] as String? ?? '',
     );
   }
 

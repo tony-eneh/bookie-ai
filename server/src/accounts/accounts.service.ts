@@ -13,15 +13,35 @@ export class AccountsService {
   constructor(private prisma: PrismaService) {}
 
   async create(userId: string, dto: CreateAccountDto) {
-    return this.prisma.account.create({
-      data: {
-        userId,
-        name: dto.name,
-        type: dto.type,
-        currency: dto.currency ?? 'USD',
-        currentBalance: dto.initialBalance ?? 0,
-        isPrimary: dto.isPrimary ?? false,
-      },
+    const currency =
+      dto.currency ??
+      (
+        await this.prisma.user.findUnique({
+          where: { id: userId },
+          select: { primaryCurrency: true },
+        })
+      )?.primaryCurrency ??
+      'USD';
+    return this.prisma.$transaction(async (tx) => {
+      if (dto.isPrimary) await this.clearPrimary(tx, userId);
+      return tx.account.create({
+        data: {
+          userId,
+          name: dto.name,
+          type: dto.type,
+          currency,
+          currentBalance: dto.initialBalance ?? 0,
+          isPrimary: dto.isPrimary ?? false,
+        },
+      });
+    });
+  }
+
+  /** A user has at most one primary account. */
+  private clearPrimary(tx: Prisma.TransactionClient, userId: string) {
+    return tx.account.updateMany({
+      where: { userId, isPrimary: true },
+      data: { isPrimary: false },
     });
   }
 
@@ -93,9 +113,9 @@ export class AccountsService {
     if (dto.initialBalance !== undefined)
       data.currentBalance = dto.initialBalance;
 
-    return this.prisma.account.update({
-      where: { id: account.id },
-      data,
+    return this.prisma.$transaction(async (tx) => {
+      if (dto.isPrimary) await this.clearPrimary(tx, userId);
+      return tx.account.update({ where: { id: account.id }, data });
     });
   }
 
@@ -147,48 +167,52 @@ export class AccountsService {
     const currentBalance = Number(account.currentBalance);
     const drift = dto.balance - currentBalance;
 
-    const reconciliation = await this.prisma.accountReconciliation.create({
-      data: {
-        accountId: account.id,
-        balance: dto.balance,
-        source: dto.source,
-        driftAmount: drift,
-      },
-    });
-
-    await this.prisma.account.update({
-      where: { id: account.id },
-      data: {
-        currentBalance: dto.balance,
-        lastReconciledBalance: dto.balance,
-        lastReconciledAt: new Date(),
-      },
-    });
-
-    // Create adjustment transaction if there's drift
-    if (Math.abs(drift) > 0.001) {
-      await this.prisma.transaction.create({
+    const hasDrift = Math.abs(drift) > 0.001;
+    const reconciliation = await this.prisma.$transaction(async (tx) => {
+      const record = await tx.accountReconciliation.create({
         data: {
-          userId,
           accountId: account.id,
-          type: drift > 0 ? 'INCOME' : 'EXPENSE',
-          amount: new Prisma.Decimal(Math.abs(drift).toFixed(4)),
-          currency: account.currency,
-          occurredAt: new Date(),
-          description: `Reconciliation adjustment (${dto.source})`,
-          sourceType: 'MANUAL',
-          parseConfidence: 1.0,
-          categoryConfidence: 1.0,
-          balanceAfterTransaction: dto.balance,
-          isBalanceSource: true,
+          balance: dto.balance,
+          source: dto.source,
+          driftAmount: drift,
         },
       });
-    }
+
+      await tx.account.update({
+        where: { id: account.id },
+        data: {
+          currentBalance: dto.balance,
+          lastReconciledBalance: dto.balance,
+          lastReconciledAt: new Date(),
+        },
+      });
+
+      // Create adjustment transaction if there's drift
+      if (hasDrift) {
+        await tx.transaction.create({
+          data: {
+            userId,
+            accountId: account.id,
+            type: drift > 0 ? 'INCOME' : 'EXPENSE',
+            amount: new Prisma.Decimal(Math.abs(drift).toFixed(4)),
+            currency: account.currency,
+            occurredAt: new Date(),
+            description: `Reconciliation adjustment (${dto.source})`,
+            sourceType: 'MANUAL',
+            parseConfidence: 1.0,
+            categoryConfidence: 1.0,
+            balanceAfterTransaction: dto.balance,
+            isBalanceSource: true,
+          },
+        });
+      }
+      return record;
+    });
 
     return {
       reconciliation,
       drift,
-      adjustmentCreated: Math.abs(drift) > 0.001,
+      adjustmentCreated: hasDrift,
     };
   }
 

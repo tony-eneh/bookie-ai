@@ -2,7 +2,9 @@ import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
+import { DEFAULT_CATEGORIES } from '../src/categories/default-categories.js';
 
+// Development only: this script deletes every row in the database.
 if (!process.env.DATABASE_URL) {
   throw new Error('DATABASE_URL must be set before running the seed script');
 }
@@ -96,66 +98,13 @@ async function main() {
   console.log('✅ 3 accounts created');
 
   // Seed default categories
-  const expenseCategories = [
-    { name: 'Food & Dining', icon: '🍔' },
-    { name: 'Groceries', icon: '🛒' },
-    { name: 'Transport', icon: '🚗' },
-    { name: 'Fuel', icon: '⛽' },
-    { name: 'Rent', icon: '🏠' },
-    { name: 'Utilities', icon: '💡' },
-    { name: 'Internet', icon: '🌐' },
-    { name: 'Mobile/Data', icon: '📱' },
-    { name: 'Healthcare', icon: '🏥' },
-    { name: 'Education', icon: '📚' },
-    { name: 'Shopping', icon: '🛍️' },
-    { name: 'Entertainment', icon: '🎬' },
-    { name: 'Subscriptions', icon: '📺' },
-    { name: 'Savings', icon: '💰' },
-    { name: 'Debt Repayment', icon: '💳' },
-    { name: 'Gifts/Donations', icon: '🎁' },
-    { name: 'Family Support', icon: '👨‍👩‍👧' },
-    { name: 'Business Expense', icon: '💼' },
-    { name: 'Travel', icon: '✈️' },
-    { name: 'Miscellaneous', icon: '📦' },
-  ];
-  const incomeCategories = [
-    { name: 'Salary', icon: '💵' },
-    { name: 'Freelance', icon: '💻' },
-    { name: 'Business Income', icon: '🏢' },
-    { name: 'Gift Received', icon: '🎀' },
-    { name: 'Refund', icon: '↩️' },
-    { name: 'Loan Received', icon: '🏦' },
-    { name: 'Repayment Received', icon: '🤝' },
-    { name: 'Investment Income', icon: '📈' },
-    { name: 'Miscellaneous Income', icon: '💫' },
-  ];
-  const transferCategories = [
-    { name: 'Internal Transfer', icon: '🔄' },
-    { name: 'Savings Transfer', icon: '🏦' },
-    { name: 'Wallet Funding', icon: '📲' },
-    { name: 'Bank Transfer', icon: '🏛️' },
-  ];
-
   const categories: Record<string, { id: string }> = {};
-  for (const cat of expenseCategories) {
-    const c = await prisma.category.create({
-      data: { name: cat.name, type: 'EXPENSE', icon: cat.icon, isDefault: true },
+  for (const cat of DEFAULT_CATEGORIES) {
+    categories[cat.name] = await prisma.category.create({
+      data: { ...cat, isDefault: true },
     });
-    categories[cat.name] = c;
   }
-  for (const cat of incomeCategories) {
-    const c = await prisma.category.create({
-      data: { name: cat.name, type: 'INCOME', icon: cat.icon, isDefault: true },
-    });
-    categories[cat.name] = c;
-  }
-  for (const cat of transferCategories) {
-    const c = await prisma.category.create({
-      data: { name: cat.name, type: 'TRANSFER', icon: cat.icon, isDefault: true },
-    });
-    categories[cat.name] = c;
-  }
-  console.log('✅ 33 default categories created');
+  console.log(`✅ ${DEFAULT_CATEGORIES.length} default categories created`);
 
   // Helper to get a date N days ago
   const daysAgo = (n: number) => {

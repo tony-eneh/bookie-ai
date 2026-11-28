@@ -1,3 +1,4 @@
+import 'package:bookie_ai/data/services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,7 +8,7 @@ import 'package:bookie_ai/core/utils/currency_formatter.dart';
 import 'package:bookie_ai/core/utils/date_formatter.dart';
 import 'package:bookie_ai/data/models/account_model.dart';
 import 'package:bookie_ai/data/providers/accounts_provider.dart';
-import 'package:bookie_ai/data/providers/transactions_provider.dart';
+import 'package:bookie_ai/features/accounts/statement_import.dart';
 import 'package:bookie_ai/features/home/widgets/transaction_tile.dart';
 
 class AccountDetailScreen extends ConsumerWidget {
@@ -78,15 +79,35 @@ class _AccountDetailView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final textTheme = Theme.of(context).textTheme;
-    final transactionsAsync = ref.watch(transactionsProvider);
+    final transactionsAsync = ref.watch(accountTransactionsProvider(account.id));
+    final historyAsync = ref.watch(reconciliationsProvider(account.id));
 
     return Scaffold(
       appBar: AppBar(
         title: Text(account.name),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.edit_outlined),
-            onPressed: () {},
+          PopupMenuButton<String>(
+            tooltip: 'Account options',
+            color: AppColors.surface,
+            onSelected: (value) => switch (value) {
+              'edit' => _showEditDialog(context, ref),
+              'import' => importStatementCsv(context, ref, account),
+              _ => _confirmDelete(context, ref),
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'edit', child: Text('Edit account')),
+              PopupMenuItem(
+                value: 'import',
+                child: Text('Import statement (CSV)'),
+              ),
+              PopupMenuItem(
+                value: 'delete',
+                child: Text(
+                  'Remove account',
+                  style: TextStyle(color: AppColors.expense),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -94,6 +115,8 @@ class _AccountDetailView extends ConsumerWidget {
         color: AppColors.accent,
         backgroundColor: AppColors.surface,
         onRefresh: () async {
+          ref.invalidate(accountTransactionsProvider(account.id));
+          ref.invalidate(reconciliationsProvider(account.id));
           await ref.read(accountsProvider.notifier).fetchAccounts();
         },
         child: ListView(
@@ -120,6 +143,38 @@ class _AccountDetailView extends ConsumerWidget {
               ),
               const SizedBox(height: 12),
               _ReconciliationInfo(account: account),
+              ...historyAsync.maybeWhen(
+                data: (history) => [
+                  for (final r in history.take(5))
+                    ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.fact_check_outlined,
+                          color: AppColors.textSecondary),
+                      title: Text(
+                        CurrencyFormatter.format(r.balance,
+                            currency: account.currency),
+                        style: const TextStyle(color: AppColors.textPrimary),
+                      ),
+                      subtitle: Text(
+                        DateFormatter.dateTime(r.createdAt),
+                        style: const TextStyle(color: AppColors.textTertiary),
+                      ),
+                      trailing: Text(
+                        r.drift.abs() < 0.005
+                            ? 'Matched'
+                            : CurrencyFormatter.format(r.drift,
+                                currency: account.currency, showSign: true),
+                        style: TextStyle(
+                          color: r.drift.abs() < 0.005
+                              ? AppColors.accent
+                              : AppColors.warning,
+                        ),
+                      ),
+                    ),
+                ],
+                orElse: () => const <Widget>[],
+              ),
               const SizedBox(height: 24),
             ],
 
@@ -150,10 +205,7 @@ class _AccountDetailView extends ConsumerWidget {
                   ),
                 ),
               ),
-              data: (paginated) {
-                final filtered = paginated.data
-                    .where((t) => t.accountId == account.id)
-                    .toList();
+              data: (filtered) {
                 if (filtered.isEmpty) {
                   return Padding(
                     padding: const EdgeInsets.symmetric(vertical: 32),
@@ -187,6 +239,109 @@ class _AccountDetailView extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _showEditDialog(BuildContext context, WidgetRef ref) async {
+    final name = TextEditingController(text: account.name);
+    var isPrimary = account.isPrimary;
+    final save = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) => AlertDialog(
+          backgroundColor: AppColors.surface,
+          title: const Text('Edit account',
+              style: TextStyle(color: AppColors.textPrimary)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: name,
+                decoration: const InputDecoration(labelText: 'Name'),
+              ),
+              const SizedBox(height: 8),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                value: isPrimary,
+                onChanged: (v) => setState(() => isPrimary = v),
+                title: const Text('Primary account',
+                    style: TextStyle(color: AppColors.textPrimary)),
+                subtitle: const Text(
+                  'Where new transactions go by default',
+                  style: TextStyle(color: AppColors.textSecondary),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+    final newName = name.text.trim();
+    name.dispose();
+    if (save != true || newName.isEmpty || !context.mounted) return;
+    try {
+      await ref.read(accountsProvider.notifier).updateAccount(account.id, {
+        'name': newName,
+        'isPrimary': isPrimary,
+      });
+      // Making this primary un-marks the previous one: reload them all.
+      await ref.read(accountsProvider.notifier).fetchAccounts();
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Could not save: ${friendlyError(e)}'),
+          backgroundColor: AppColors.expense,
+        ));
+      }
+    }
+  }
+
+  Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: Text('Remove ${account.name}?',
+            style: const TextStyle(color: AppColors.textPrimary)),
+        content: const Text(
+          'It disappears from your accounts and totals. Its past '
+          'transactions stay in your history.',
+          style: TextStyle(color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Remove',
+                style: TextStyle(color: AppColors.expense)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    try {
+      await ref.read(accountsProvider.notifier).deleteAccount(account.id);
+      if (context.mounted) Navigator.of(context).pop();
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Could not remove: ${friendlyError(e)}'),
+          backgroundColor: AppColors.expense,
+        ));
+      }
+    }
   }
 
   void _showReconcileSheet(BuildContext context, WidgetRef ref) {
@@ -246,10 +401,11 @@ class _BalanceHeader extends StatelessWidget {
             ),
           ),
           if (account.convertedBalance != null &&
-              account.convertedBalance != account.currentBalance) ...[
+              account.convertedCurrency != null &&
+              account.convertedCurrency != account.currency) ...[
             const SizedBox(height: 8),
             Text(
-              '≈ ${CurrencyFormatter.format(account.convertedBalance!, currency: 'USD')}',
+              '≈ ${CurrencyFormatter.format(account.convertedBalance!, currency: account.convertedCurrency!)}',
               style: textTheme.bodyLarge?.copyWith(
                 color: AppColors.textSecondary,
               ),
@@ -421,7 +577,6 @@ class _ReconciliationInfo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -552,15 +707,30 @@ class _ReconcileSheetState extends ConsumerState<_ReconcileSheet> {
 
     setState(() => _isLoading = true);
     try {
-      await ref
+      final drift = await ref
           .read(accountsProvider.notifier)
           .reconcile(account.id, balance);
-      if (mounted) Navigator.of(context).pop();
+      ref.invalidate(reconciliationsProvider(account.id));
+      ref.invalidate(accountTransactionsProvider(account.id));
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      Navigator.of(context).pop();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            drift.abs() < 0.005
+                ? 'Balance confirmed. Everything matches.'
+                : 'Balance updated. Added an adjustment of '
+                    '${drift > 0 ? '+' : ''}${drift.toStringAsFixed(2)} '
+                    '${account.currency}.',
+          ),
+        ),
+      );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Reconciliation failed: $e'),
+            content: Text('Reconciliation failed: ${friendlyError(e)}'),
             backgroundColor: AppColors.expense,
           ),
         );

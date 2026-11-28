@@ -3,7 +3,45 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bookie_ai/core/theme/app_colors.dart';
 import 'package:bookie_ai/core/constants/app_constants.dart';
+import 'package:bookie_ai/data/providers/accounts_provider.dart';
 import 'package:bookie_ai/data/providers/auth_provider.dart';
+import 'package:bookie_ai/data/providers/dashboard_provider.dart';
+import 'package:bookie_ai/data/services/api_service.dart';
+import 'package:bookie_ai/features/settings/privacy_actions.dart';
+import 'package:bookie_ai/features/settings/sms_import_tile.dart';
+
+typedef _Option = ({String value, String label, String? description});
+
+const List<_Option> _personalityOptions = [
+  (value: 'GENTLE', label: 'Gentle', description: 'Friendly nudges, no pressure'),
+  (value: 'DIRECT', label: 'Direct', description: 'Straight facts, short answers'),
+  (value: 'COACH_LIKE', label: 'Coach', description: 'Pushes you toward your goals'),
+];
+
+const List<_Option> _notificationOptions = [
+  (value: 'MINIMAL', label: 'Minimal', description: 'Only what needs your answer'),
+  (value: 'STANDARD', label: 'Standard', description: 'Questions plus budget warnings'),
+  (value: 'PROACTIVE', label: 'Proactive', description: 'Also tips and weekly summaries'),
+  (value: 'COACH', label: 'Coach', description: 'Regular check-ins on your goals'),
+];
+
+const List<_Option> _incomeOptions = [
+  (value: 'FIXED_SALARY', label: 'Fixed salary', description: null),
+  (value: 'IRREGULAR', label: 'Irregular', description: 'Freelance or variable pay'),
+  (value: 'BUSINESS', label: 'Business', description: 'Income from your own business'),
+  (value: 'MIXED', label: 'Mixed', description: 'A bit of everything'),
+];
+
+const List<_Option> _fxOptions = [
+  (value: 'REAL_TIME', label: 'Real-time', description: 'Latest exchange rates'),
+  (value: 'DAILY_AVERAGE', label: 'Daily average', description: 'Smoother, once a day'),
+  (value: 'MANUAL_OVERRIDE', label: 'Manual', description: 'Use rates you set'),
+];
+
+String _labelFor(List<_Option> options, String? value) =>
+    options.where((o) => o.value == value).firstOrNull?.label ??
+    value ??
+    'Not set';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -26,35 +64,83 @@ class SettingsScreen extends ConsumerWidget {
             icon: Icons.attach_money,
             title: 'Primary Currency',
             subtitle: user?.primaryCurrency ?? 'Not set',
-            onTap: () => _showCurrencyPicker(context, ref),
+            onTap: () => _pick(
+              context,
+              ref,
+              title: 'Primary currency',
+              options: [
+                for (final c in AppConstants.supportedCurrencies)
+                  (
+                    value: c,
+                    label:
+                        '${AppConstants.currencySymbols[c] ?? ''}  $c'.trim(),
+                    description: null,
+                  ),
+              ],
+              current: user?.primaryCurrency,
+              save: (v) async {
+                await ref
+                    .read(authProvider.notifier)
+                    .updateProfile({'primaryCurrency': v});
+                // Totals are converted into this currency: reload them.
+                ref.invalidate(dashboardProvider);
+                await ref.read(accountsProvider.notifier).fetchAccounts();
+              },
+            ),
           ),
           _buildTile(
             context,
             icon: Icons.psychology,
-            title: 'Financial Personality',
-            subtitle: user?.financialPersonality ?? 'Not set',
-            onTap: () {},
+            title: 'Assistant Personality',
+            subtitle: _labelFor(_personalityOptions, user?.financialPersonality),
+            onTap: () => _pickPreference(context, ref, 'financialPersonality',
+                'Assistant personality', _personalityOptions,
+                user?.financialPersonality),
           ),
           _buildTile(
             context,
             icon: Icons.notifications_outlined,
             title: 'Notification Mode',
-            subtitle: user?.notificationMode ?? 'Standard',
-            onTap: () {},
+            subtitle: _labelFor(_notificationOptions, user?.notificationMode),
+            onTap: () => _pickPreference(context, ref, 'notificationMode',
+                'Notification mode', _notificationOptions,
+                user?.notificationMode),
           ),
           _buildTile(
             context,
             icon: Icons.work_outline,
             title: 'Income Style',
-            subtitle: user?.incomeStyle ?? 'Not set',
-            onTap: () {},
+            subtitle: _labelFor(_incomeOptions, user?.incomeStyle),
+            onTap: () => _pickPreference(context, ref, 'incomeStyle',
+                'Income style', _incomeOptions, user?.incomeStyle),
           ),
           _buildTile(
             context,
             icon: Icons.currency_exchange,
-            title: 'FX Preference',
-            subtitle: user?.fxPreference ?? 'Real-time',
-            onTap: () {},
+            title: 'Exchange Rates',
+            subtitle: _labelFor(_fxOptions, user?.fxPreference),
+            onTap: () => _pickPreference(context, ref, 'fxPreference',
+                'Exchange rates', _fxOptions, user?.fxPreference),
+          ),
+          const SizedBox(height: 8),
+          _buildSectionHeader(context, 'Automatic tracking'),
+          const SmsImportTile(),
+          const SizedBox(height: 8),
+          _buildSectionHeader(context, 'Privacy & data'),
+          _buildTile(
+            context,
+            icon: Icons.download_outlined,
+            title: 'Export my data',
+            subtitle: 'Everything BookieAI stores about you, as a file',
+            onTap: () => exportMyData(context, ref),
+          ),
+          _buildTile(
+            context,
+            icon: Icons.delete_forever_outlined,
+            title: 'Delete account',
+            subtitle: 'Permanently erase your account and data',
+            titleColor: AppColors.expense,
+            onTap: () => confirmDeleteAccount(context, ref),
           ),
           const SizedBox(height: 8),
           _buildSectionHeader(context, 'Account'),
@@ -183,22 +269,90 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  void _showCurrencyPicker(BuildContext context, WidgetRef ref) {
+  void _pickPreference(
+    BuildContext context,
+    WidgetRef ref,
+    String field,
+    String title,
+    List<_Option> options,
+    String? current,
+  ) {
+    _pick(
+      context,
+      ref,
+      title: title,
+      options: options,
+      current: current,
+      save: (v) =>
+          ref.read(authProvider.notifier).updatePreferences({field: v}),
+    );
+  }
+
+  /// Shows [options] in a bottom sheet and saves the chosen value.
+  void _pick(
+    BuildContext context,
+    WidgetRef ref, {
+    required String title,
+    required List<_Option> options,
+    required String? current,
+    required Future<void> Function(String value) save,
+  }) {
+    final messenger = ScaffoldMessenger.of(context);
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       backgroundColor: AppColors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (context) => ListView(
-        shrinkWrap: true,
-        children: AppConstants.supportedCurrencies
-            .map((c) => ListTile(
-                  title: Text(c,
-                      style: const TextStyle(color: AppColors.textPrimary)),
-                  onTap: () => Navigator.pop(context),
-                ))
-            .toList(),
+      builder: (sheetContext) => ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(sheetContext).size.height * 0.7,
+        ),
+        child: ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.only(bottom: 16),
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+              child: Text(
+                title,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            for (final o in options)
+              ListTile(
+                title: Text(o.label,
+                    style: const TextStyle(color: AppColors.textPrimary)),
+                subtitle: o.description == null
+                    ? null
+                    : Text(o.description!,
+                        style:
+                            const TextStyle(color: AppColors.textSecondary)),
+                trailing: o.value == current
+                    ? const Icon(Icons.check, color: AppColors.accent)
+                    : null,
+                onTap: () async {
+                  Navigator.pop(sheetContext);
+                  if (o.value == current) return;
+                  try {
+                    await save(o.value);
+                  } catch (e) {
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: Text('Could not save: ${friendlyError(e)}'),
+                        backgroundColor: AppColors.expense,
+                      ),
+                    );
+                  }
+                },
+              ),
+          ],
+        ),
       ),
     );
   }

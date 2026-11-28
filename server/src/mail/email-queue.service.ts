@@ -27,6 +27,12 @@ export class EmailQueueService implements OnModuleInit, OnModuleDestroy {
       this.logger.warn('REDIS_URL is not configured. Email jobs will run inline.');
       return;
     }
+    // Serverless functions can't host a long-lived BullMQ worker, and a
+    // localhost Redis URL there points at nothing.
+    if (this.configService.get<string>('VERCEL')) {
+      this.logger.log('Running on Vercel. Email jobs will run inline.');
+      return;
+    }
 
     const connection = this.parseRedisConnection(redisUrl);
     this.queue = new Queue<PasswordResetEmailPayload>('emails', { connection });
@@ -55,19 +61,43 @@ export class EmailQueueService implements OnModuleInit, OnModuleDestroy {
 
   async enqueuePasswordResetEmail(payload: PasswordResetEmailPayload) {
     if (!this.queue) {
-      await this.mailService.sendPasswordResetEmail(payload);
+      await this.sendInline(payload);
       return;
     }
 
-    await this.queue.add('password-reset', payload, {
-      attempts: 3,
-      removeOnComplete: 100,
-      removeOnFail: 100,
-      backoff: {
-        type: 'exponential',
-        delay: 1000,
-      },
-    });
+    try {
+      await withTimeout(
+        this.queue.add('password-reset', payload, {
+          attempts: 3,
+          removeOnComplete: 100,
+          removeOnFail: 100,
+          backoff: {
+            type: 'exponential',
+            delay: 1000,
+          },
+        }),
+        3000,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Could not queue email (${error instanceof Error ? error.message : String(error)}); sending inline.`,
+      );
+      await this.sendInline(payload);
+    }
+  }
+
+  /**
+   * A failed send is logged, not thrown: the caller's response must not
+   * reveal whether the email exists or whether delivery worked.
+   */
+  private async sendInline(payload: PasswordResetEmailPayload) {
+    try {
+      await this.mailService.sendPasswordResetEmail(payload);
+    } catch (error) {
+      this.logger.error(
+        `Password reset email to ${payload.to} failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   private parseRedisConnection(redisUrl: string): ConnectionOptions {
@@ -81,4 +111,23 @@ export class EmailQueueService implements OnModuleInit, OnModuleDestroy {
       tls: url.protocol === 'rediss:' ? {} : undefined,
     };
   }
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error(`timed out after ${ms}ms`)),
+      ms,
+    );
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error: unknown) => {
+        clearTimeout(timer);
+        reject(error instanceof Error ? error : new Error(String(error)));
+      },
+    );
+  });
 }

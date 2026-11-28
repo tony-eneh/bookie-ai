@@ -1,6 +1,8 @@
+import 'package:bookie_ai/data/services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:bookie_ai/data/providers/auth_provider.dart';
 import 'package:bookie_ai/core/constants/app_constants.dart';
 import 'package:bookie_ai/core/theme/app_colors.dart';
 import 'package:bookie_ai/data/providers/accounts_provider.dart';
@@ -39,6 +41,13 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
   };
 
   @override
+  void initState() {
+    super.initState();
+    _selectedCurrency =
+        ref.read(authProvider).user?.primaryCurrency ?? _selectedCurrency;
+  }
+
+  @override
   void dispose() {
     _nameController.dispose();
     _balanceController.dispose();
@@ -55,7 +64,7 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
         'name': _nameController.text.trim(),
         'type': _selectedType,
         'currency': _selectedCurrency,
-        'currentBalance': double.tryParse(_balanceController.text) ?? 0.0,
+        'initialBalance': double.tryParse(_balanceController.text) ?? 0.0,
         'isPrimary': _isPrimary,
       });
       if (mounted) Navigator.of(context).pop(true);
@@ -63,7 +72,7 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to create account: $e'),
+            content: Text('Failed to create account: ${friendlyError(e)}'),
             backgroundColor: AppColors.expense,
           ),
         );
