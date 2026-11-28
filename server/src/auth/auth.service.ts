@@ -2,7 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
-  InternalServerErrorException,
+  ServiceUnavailableException,
   Logger,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -10,7 +10,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { hash, compare } from 'bcryptjs';
-import { OAuth2Client } from 'google-auth-library';
+import { OAuth2Client, type TokenPayload } from 'google-auth-library';
 import { EmailQueueService } from '../mail/email-queue.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { UsersService } from '../users/users.service.js';
@@ -40,7 +40,7 @@ export class AuthService {
 
     const user = await this.prisma.user.create({
       data: {
-        email: dto.email,
+        email: dto.email.trim().toLowerCase(),
         passwordHash,
         fullName: dto.fullName,
       },
@@ -203,16 +203,22 @@ export class AuthService {
       .filter(Boolean);
 
     if (allowedClientIds.length === 0) {
-      throw new InternalServerErrorException(
-        'GOOGLE_CLIENT_ID must be configured before Google sign-in can be used',
+      throw new ServiceUnavailableException(
+        'Google sign-in is not available right now',
       );
     }
 
-    const ticket = await this.googleClient.verifyIdToken({
-      idToken: dto.idToken,
-      audience: allowedClientIds,
-    });
-    const payload = ticket.getPayload();
+    let payload: TokenPayload | undefined;
+    try {
+      const ticket = await this.googleClient.verifyIdToken({
+        idToken: dto.idToken,
+        audience: allowedClientIds,
+      });
+      payload = ticket.getPayload();
+    } catch {
+      // Expired, malformed or wrong-audience tokens are the client's problem.
+      throw new UnauthorizedException('Invalid Google sign-in token');
+    }
 
     if (!payload?.email || !payload.email_verified) {
       throw new UnauthorizedException('Google account email is not verified');
@@ -228,7 +234,7 @@ export class AuthService {
       user = await this.prisma.$transaction(async (tx) => {
         const createdUser = await tx.user.create({
           data: {
-            email: payload.email!,
+            email: payload.email!.toLowerCase(),
             fullName: dto.fullName ?? payload.name ?? 'Google User',
           },
         });
