@@ -247,10 +247,11 @@ class _BalanceHeader extends StatelessWidget {
             ),
           ),
           if (account.convertedBalance != null &&
-              account.convertedBalance != account.currentBalance) ...[
+              account.convertedCurrency != null &&
+              account.convertedCurrency != account.currency) ...[
             const SizedBox(height: 8),
             Text(
-              '≈ ${CurrencyFormatter.format(account.convertedBalance!, currency: 'USD')}',
+              '≈ ${CurrencyFormatter.format(account.convertedBalance!, currency: account.convertedCurrency!)}',
               style: textTheme.bodyLarge?.copyWith(
                 color: AppColors.textSecondary,
               ),

@@ -1,13 +1,53 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AiService } from '../ai/ai.service.js';
+import { FxRatesService } from '../fx-rates/fx-rates.service.js';
+
+/** Converts an amount between currencies using rates loaded up front. */
+export type Convert = (amount: number, from: string, to: string) => number;
 
 @Injectable()
 export class InsightsService {
+  private readonly logger = new Logger(InsightsService.name);
+
   constructor(
     private prisma: PrismaService,
     private aiService: AiService,
+    private fxRates: FxRatesService,
   ) {}
+
+  /**
+   * Loads the FX rates for the given (from, to) pairs once, so amounts can be
+   * converted synchronously. A missing rate leaves amounts unconverted (and is
+   * logged) rather than failing the whole request.
+   */
+  async loadConverter(pairs: Iterable<[string, string]>): Promise<Convert> {
+    const rates = new Map<string, number>();
+    const wanted = new Set<string>();
+    for (const [from, to] of pairs) {
+      if (from && to && from !== to) wanted.add(`${from}>${to}`);
+    }
+    await Promise.all(
+      [...wanted].map(async (key) => {
+        const [from, to] = key.split('>');
+        try {
+          rates.set(key, await this.fxRates.getRate(from, to));
+        } catch {
+          this.logger.warn(`No FX rate for ${from}->${to}; left unconverted`);
+        }
+      }),
+    );
+    return (amount, from, to) =>
+      !from || from === to ? amount : amount * (rates.get(`${from}>${to}`) ?? 1);
+  }
+
+  private async primaryCurrency(userId: string): Promise<string> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { primaryCurrency: true },
+    });
+    return user?.primaryCurrency ?? 'USD';
+  }
 
   async getDashboard(userId: string) {
     const now = new Date();
@@ -31,6 +71,8 @@ export class InsightsService {
       pendingClarifications,
       goals,
       recentTransactions,
+      primary,
+      accounts,
     ] = await Promise.all([
       this.prisma.transaction.findMany({
         where: {
@@ -71,17 +113,13 @@ export class InsightsService {
         orderBy: { occurredAt: 'desc' },
         take: 10,
       }),
+      this.primaryCurrency(userId),
+      this.prisma.account.findMany({
+        where: { userId, isActive: true },
+        select: { currentBalance: true, currency: true },
+      }),
     ]);
 
-    const totalIncome = incomeAgg.reduce(
-      (sum, tx) => sum + Number(tx.amount),
-      0,
-    );
-    const totalExpenses = expenseAgg.reduce(
-      (sum, tx) => sum + Number(tx.amount),
-      0,
-    );
-    const netCashFlow = totalIncome - totalExpenses;
 
     const budgetPeriods = budgets.map((budget) => ({
       budget,
@@ -115,6 +153,33 @@ export class InsightsService {
           })
         : [];
 
+    // Everything is reported in the user's primary currency, except budget
+    // progress, which is in each budget's own currency.
+    const convert = await this.loadConverter([
+      ...[...incomeAgg, ...expenseAgg].map(
+        (tx) => [tx.currency, primary] as [string, string],
+      ),
+      ...accounts.map((a) => [a.currency, primary] as [string, string]),
+      ...budgetPeriods.flatMap(({ budget }) =>
+        budgetTransactions.map(
+          (tx) => [tx.currency, budget.currency] as [string, string],
+        ),
+      ),
+    ]);
+    const toPrimary = (tx: { amount: unknown; currency: string }) =>
+      convert(Number(tx.amount), tx.currency, primary);
+
+    const totalIncome = incomeAgg.reduce((sum, tx) => sum + toPrimary(tx), 0);
+    const totalExpenses = expenseAgg.reduce(
+      (sum, tx) => sum + toPrimary(tx),
+      0,
+    );
+    const netCashFlow = totalIncome - totalExpenses;
+    const totalBalance = accounts.reduce(
+      (sum, a) => sum + convert(Number(a.currentBalance), a.currency, primary),
+      0,
+    );
+
     // Budget progress
     const budgetProgress = budgetPeriods.map(({ budget, periodStart, periodEnd }) => {
         const budgetAmount = Number(budget.amount);
@@ -128,11 +193,16 @@ export class InsightsService {
 
             return isWithinPeriod && categoryMatches;
           })
-          .reduce((sum, tx) => sum + Number(tx.amount), 0);
+          .reduce(
+            (sum, tx) =>
+              sum + convert(Number(tx.amount), tx.currency, budget.currency),
+            0,
+          );
 
         return {
           budgetId: budget.id,
           name: budget.name,
+          currency: budget.currency,
           categoryName: budget.category?.name ?? 'All',
           budgetAmount: Number(budgetAmount.toFixed(2)),
           spent: Number(spent.toFixed(2)),
@@ -154,12 +224,12 @@ export class InsightsService {
       const key = tx.categoryId ?? 'uncategorized';
       const existing = categoryMap.get(key);
       if (existing) {
-        existing.total += Number(tx.amount);
+        existing.total += toPrimary(tx);
       } else {
         categoryMap.set(key, {
           name: tx.category?.name ?? 'Uncategorized',
           icon: tx.category?.icon ?? '📦',
-          total: Number(tx.amount),
+          total: toPrimary(tx),
         });
       }
     }
@@ -175,6 +245,7 @@ export class InsightsService {
       return {
         goalId: goal.id,
         title: goal.title,
+        currency: goal.targetCurrency,
         targetAmount: target,
         currentAmount: current,
         percentage: target > 0 ? Number(((current / target) * 100).toFixed(1)) : 0,
@@ -192,6 +263,8 @@ export class InsightsService {
     );
 
     return {
+      currency: primary,
+      totalBalance: Number(totalBalance.toFixed(2)),
       totalIncome: Number(totalIncome.toFixed(2)),
       totalExpenses: Number(totalExpenses.toFixed(2)),
       netCashFlow: Number(netCashFlow.toFixed(2)),
@@ -234,20 +307,29 @@ export class InsightsService {
         this.prisma.goal.findMany({ where: { userId } }),
       ]);
 
+    const primary = await this.primaryCurrency(userId);
+    const convert = await this.loadConverter(
+      [...currentTxs, ...prevTxs].map(
+        (tx) => [tx.currency, primary] as [string, string],
+      ),
+    );
+    const toPrimary = (tx: { amount: unknown; currency: string }) =>
+      convert(Number(tx.amount), tx.currency, primary);
+
     const income = currentTxs
       .filter((tx) => tx.type === 'INCOME')
-      .reduce((sum, tx) => sum + Number(tx.amount), 0);
+      .reduce((sum, tx) => sum + toPrimary(tx), 0);
     const expenses = currentTxs
       .filter((tx) => tx.type === 'EXPENSE')
-      .reduce((sum, tx) => sum + Number(tx.amount), 0);
+      .reduce((sum, tx) => sum + toPrimary(tx), 0);
     const net = income - expenses;
 
     const prevIncome = prevTxs
       .filter((tx) => tx.type === 'INCOME')
-      .reduce((sum, tx) => sum + Number(tx.amount), 0);
+      .reduce((sum, tx) => sum + toPrimary(tx), 0);
     const prevExpenses = prevTxs
       .filter((tx) => tx.type === 'EXPENSE')
-      .reduce((sum, tx) => sum + Number(tx.amount), 0);
+      .reduce((sum, tx) => sum + toPrimary(tx), 0);
 
     // Top category
     const catMap = new Map<string, { name: string; total: number }>();
@@ -255,11 +337,11 @@ export class InsightsService {
       const key = tx.categoryId ?? 'uncategorized';
       const existing = catMap.get(key);
       if (existing) {
-        existing.total += Number(tx.amount);
+        existing.total += toPrimary(tx);
       } else {
         catMap.set(key, {
           name: tx.category?.name ?? 'Uncategorized',
-          total: Number(tx.amount),
+          total: toPrimary(tx),
         });
       }
     }
@@ -288,6 +370,7 @@ export class InsightsService {
     return {
       periodStart,
       periodEnd,
+      currency: primary,
       income: Number(income.toFixed(2)),
       expenses: Number(expenses.toFixed(2)),
       net: Number(net.toFixed(2)),
@@ -344,21 +427,30 @@ export class InsightsService {
       this.prisma.goal.findMany({ where: { userId } }),
     ]);
 
+    const primary = await this.primaryCurrency(userId);
+    const convert = await this.loadConverter(
+      [...currentTxs, ...prevTxs].map(
+        (tx) => [tx.currency, primary] as [string, string],
+      ),
+    );
+    const toPrimary = (tx: { amount: unknown; currency: string }) =>
+      convert(Number(tx.amount), tx.currency, primary);
+
     const income = currentTxs
       .filter((tx) => tx.type === 'INCOME')
-      .reduce((sum, tx) => sum + Number(tx.amount), 0);
+      .reduce((sum, tx) => sum + toPrimary(tx), 0);
     const expenses = currentTxs
       .filter((tx) => tx.type === 'EXPENSE')
-      .reduce((sum, tx) => sum + Number(tx.amount), 0);
+      .reduce((sum, tx) => sum + toPrimary(tx), 0);
     const net = income - expenses;
     const savingsRate = income > 0 ? (net / income) * 100 : 0;
 
     const prevIncome = prevTxs
       .filter((tx) => tx.type === 'INCOME')
-      .reduce((sum, tx) => sum + Number(tx.amount), 0);
+      .reduce((sum, tx) => sum + toPrimary(tx), 0);
     const prevExpenses = prevTxs
       .filter((tx) => tx.type === 'EXPENSE')
-      .reduce((sum, tx) => sum + Number(tx.amount), 0);
+      .reduce((sum, tx) => sum + toPrimary(tx), 0);
 
     // Category breakdown
     const catMap = new Map<
@@ -369,13 +461,13 @@ export class InsightsService {
       const key = tx.categoryId ?? 'uncategorized';
       const existing = catMap.get(key);
       if (existing) {
-        existing.total += Number(tx.amount);
+        existing.total += toPrimary(tx);
         existing.count += 1;
       } else {
         catMap.set(key, {
           name: tx.category?.name ?? 'Uncategorized',
           icon: tx.category?.icon ?? '📦',
-          total: Number(tx.amount),
+          total: toPrimary(tx),
           count: 1,
         });
       }
@@ -401,6 +493,7 @@ export class InsightsService {
       year: y,
       periodStart: monthStart,
       periodEnd: monthEnd,
+      currency: primary,
       income: Number(income.toFixed(2)),
       expenses: Number(expenses.toFixed(2)),
       net: Number(net.toFixed(2)),

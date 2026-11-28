@@ -59,6 +59,7 @@ void main() {
           'budgetId': 'ab04d7b9',
           'name': 'Food Budget',
           'categoryName': 'Food & Dining',
+          'currency': 'KRW',
           'budgetAmount': 400000,
           'spent': 112500,
           'remaining': 287500,
@@ -92,8 +93,15 @@ void main() {
     };
 
     test('parses server field names', () {
-      final d = DashboardData.fromJson(payload);
+      final d = DashboardData.fromJson({
+        ...payload,
+        'currency': 'KRW',
+        'totalBalance': 3494705,
+      });
+      expect(d.currency, 'KRW');
+      expect(d.totalBalance, 3494705);
       expect(d.budgetProgress.single.amount, 400000);
+      expect(d.budgetProgress.single.currency, 'KRW');
       expect(d.budgetProgress.single.used, 112500);
       expect(d.budgetProgress.single.percentage, 28.1);
       expect(d.topCategories.single.amount, 112500);

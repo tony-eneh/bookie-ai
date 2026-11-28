@@ -2,6 +2,9 @@ import 'package:bookie_ai/core/utils/json_parsers.dart';
 import 'package:bookie_ai/data/models/transaction_model.dart';
 
 class DashboardData {
+  /// Currency of the totals and categories (the user's primary currency).
+  final String? currency;
+  final double? totalBalance;
   final double totalIncome;
   final double totalExpenses;
   final double netCashFlow;
@@ -13,6 +16,8 @@ class DashboardData {
   final List<String> insights;
 
   const DashboardData({
+    this.currency,
+    this.totalBalance,
     required this.totalIncome,
     required this.totalExpenses,
     required this.netCashFlow,
@@ -26,6 +31,8 @@ class DashboardData {
 
   factory DashboardData.fromJson(Map<String, dynamic> json) {
     return DashboardData(
+      currency: json['currency'] as String?,
+      totalBalance: parseNullableDouble(json['totalBalance']),
       totalIncome: parseDouble(json['totalIncome']),
       totalExpenses: parseDouble(json['totalExpenses']),
       netCashFlow: parseDouble(json['netCashFlow']),
@@ -57,6 +64,8 @@ class DashboardData {
 
   Map<String, dynamic> toJson() {
     return {
+      if (currency != null) 'currency': currency,
+      if (totalBalance != null) 'totalBalance': totalBalance,
       'totalIncome': totalIncome,
       'totalExpenses': totalExpenses,
       'netCashFlow': netCashFlow,
@@ -90,12 +99,14 @@ class DashboardData {
 
 class BudgetProgress {
   final String name;
+  final String? currency;
   final double amount;
   final double used;
   final double percentage;
 
   const BudgetProgress({
     required this.name,
+    this.currency,
     required this.amount,
     required this.used,
     required this.percentage,
@@ -104,6 +115,7 @@ class BudgetProgress {
   factory BudgetProgress.fromJson(Map<String, dynamic> json) {
     return BudgetProgress(
       name: json['name'] as String,
+      currency: json['currency'] as String?,
       amount: parseDouble(json['budgetAmount'] ?? json['amount']),
       used: parseDouble(json['spent'] ?? json['used']),
       percentage: parseDouble(json['percentageUsed'] ?? json['percentage']),
@@ -113,6 +125,7 @@ class BudgetProgress {
   Map<String, dynamic> toJson() {
     return {
       'name': name,
+      if (currency != null) 'currency': currency,
       'amount': amount,
       'used': used,
       'percentage': percentage,
@@ -162,6 +175,7 @@ class CategoryBreakdown {
 
 class GoalProgress {
   final String title;
+  final String? currency;
   final double targetAmount;
   final double currentAmount;
   final double percentage;
@@ -169,6 +183,7 @@ class GoalProgress {
 
   const GoalProgress({
     required this.title,
+    this.currency,
     required this.targetAmount,
     required this.currentAmount,
     required this.percentage,
@@ -178,6 +193,7 @@ class GoalProgress {
   factory GoalProgress.fromJson(Map<String, dynamic> json) {
     return GoalProgress(
       title: json['title'] as String,
+      currency: json['currency'] as String?,
       targetAmount: parseDouble(json['targetAmount']),
       currentAmount: parseDouble(json['currentAmount']),
       percentage: parseDouble(json['percentage']),
@@ -188,6 +204,7 @@ class GoalProgress {
   Map<String, dynamic> toJson() {
     return {
       'title': title,
+      if (currency != null) 'currency': currency,
       'targetAmount': targetAmount,
       'currentAmount': currentAmount,
       'percentage': percentage,

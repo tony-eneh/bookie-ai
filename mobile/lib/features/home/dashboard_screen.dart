@@ -84,10 +84,12 @@ class _DashboardContent extends StatelessWidget {
 
         // Balance card
         BalanceCard(
-          totalBalance: data.totalIncome - data.totalExpenses,
+          totalBalance:
+              data.totalBalance ?? data.totalIncome - data.totalExpenses,
           income: data.totalIncome,
           expenses: data.totalExpenses,
-          currency: currency,
+          netCashFlow: data.netCashFlow,
+          currency: data.currency ?? currency,
         ),
         const SizedBox(height: 24),
 
@@ -127,9 +129,10 @@ class _DashboardContent extends StatelessWidget {
               itemCount: data.budgetProgress.length,
               separatorBuilder: (_, __) => const SizedBox(width: 12),
               itemBuilder: (context, index) {
+                final budget = data.budgetProgress[index];
                 return BudgetProgressCard(
-                  budget: data.budgetProgress[index],
-                  currency: currency,
+                  budget: budget,
+                  currency: budget.currency ?? data.currency ?? currency,
                 );
               },
             ),
@@ -151,9 +154,10 @@ class _DashboardContent extends StatelessWidget {
               itemCount: data.goalProgress.length,
               separatorBuilder: (_, __) => const SizedBox(width: 12),
               itemBuilder: (context, index) {
+                final goal = data.goalProgress[index];
                 return GoalProgressCard(
-                  goal: data.goalProgress[index],
-                  currency: currency,
+                  goal: goal,
+                  currency: goal.currency ?? data.currency ?? currency,
                 );
               },
             ),

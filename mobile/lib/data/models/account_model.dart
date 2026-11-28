@@ -11,6 +11,7 @@ class Account {
   final bool isPrimary;
   final bool isActive;
   final double? convertedBalance;
+  final String? convertedCurrency;
   final String? confidence; // HIGH, MEDIUM, LOW
   final DateTime createdAt;
 
@@ -25,6 +26,7 @@ class Account {
     required this.isPrimary,
     required this.isActive,
     this.convertedBalance,
+    this.convertedCurrency,
     this.confidence,
     required this.createdAt,
   });
@@ -44,6 +46,7 @@ class Account {
       isPrimary: json['isPrimary'] as bool? ?? false,
       isActive: json['isActive'] as bool? ?? true,
       convertedBalance: parseNullableDouble(json['convertedBalance']),
+      convertedCurrency: json['convertedCurrency'] as String?,
       confidence: json['confidence'] as String?,
       createdAt: DateTime.parse(json['createdAt'] as String),
     );
@@ -63,6 +66,7 @@ class Account {
       'isPrimary': isPrimary,
       'isActive': isActive,
       if (convertedBalance != null) 'convertedBalance': convertedBalance,
+      if (convertedCurrency != null) 'convertedCurrency': convertedCurrency,
       if (confidence != null) 'confidence': confidence,
       'createdAt': createdAt.toIso8601String(),
     };
