@@ -1,3 +1,5 @@
+> **Historical (2026-04-03).** Several findings here have since been fixed. Kept for reference only; do not treat as current status.
+
 # BookieAI Assessment
 
 ## Executive summary
