@@ -24,9 +24,6 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
-    "@bull-board/api": "^6.20.6",
-    "@bull-board/express": "^6.20.6",
-    "@nestjs/bull": "^11.0.4",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.3",
     "@nestjs/core": "^11.0.1",
@@ -43,7 +40,6 @@
     "class-validator": "^0.14.4",
     "google-auth-library": "^10.6.2",
     "helmet": "^8.3.0",
-    "ioredis": "^5.10.1",
     "nodemailer": "^8.0.4",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
