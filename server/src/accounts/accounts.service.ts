@@ -13,6 +13,15 @@ export class AccountsService {
   constructor(private prisma: PrismaService) {}
 
   async create(userId: string, dto: CreateAccountDto) {
+    const currency =
+      dto.currency ??
+      (
+        await this.prisma.user.findUnique({
+          where: { id: userId },
+          select: { primaryCurrency: true },
+        })
+      )?.primaryCurrency ??
+      'USD';
     return this.prisma.$transaction(async (tx) => {
       if (dto.isPrimary) await this.clearPrimary(tx, userId);
       return tx.account.create({
@@ -20,7 +29,7 @@ export class AccountsService {
           userId,
           name: dto.name,
           type: dto.type,
-          currency: dto.currency ?? 'USD',
+          currency,
           currentBalance: dto.initialBalance ?? 0,
           isPrimary: dto.isPrimary ?? false,
         },

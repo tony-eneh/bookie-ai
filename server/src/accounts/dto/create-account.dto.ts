@@ -17,10 +17,15 @@ export class CreateAccountDto {
   @IsEnum(AccountType)
   type: AccountType;
 
-  @ApiPropertyOptional({ example: 'USD', default: 'USD' })
+  // No default initializer here: UpdateAccountDto extends this via
+  // PartialType, and a default would overwrite the currency on every edit.
+  @ApiPropertyOptional({
+    example: 'NGN',
+    description: "Defaults to the user's primary currency",
+  })
   @IsOptional()
   @IsString()
-  currency?: string = 'USD';
+  currency?: string;
 
   @ApiPropertyOptional({ example: 1000.0 })
   @IsOptional()
