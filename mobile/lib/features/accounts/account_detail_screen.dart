@@ -8,6 +8,7 @@ import 'package:bookie_ai/core/utils/currency_formatter.dart';
 import 'package:bookie_ai/core/utils/date_formatter.dart';
 import 'package:bookie_ai/data/models/account_model.dart';
 import 'package:bookie_ai/data/providers/accounts_provider.dart';
+import 'package:bookie_ai/features/accounts/statement_import.dart';
 import 'package:bookie_ai/features/home/widgets/transaction_tile.dart';
 
 class AccountDetailScreen extends ConsumerWidget {
@@ -88,11 +89,17 @@ class _AccountDetailView extends ConsumerWidget {
           PopupMenuButton<String>(
             tooltip: 'Account options',
             color: AppColors.surface,
-            onSelected: (value) => value == 'edit'
-                ? _showEditDialog(context, ref)
-                : _confirmDelete(context, ref),
+            onSelected: (value) => switch (value) {
+              'edit' => _showEditDialog(context, ref),
+              'import' => importStatementCsv(context, ref, account),
+              _ => _confirmDelete(context, ref),
+            },
             itemBuilder: (_) => const [
               PopupMenuItem(value: 'edit', child: Text('Edit account')),
+              PopupMenuItem(
+                value: 'import',
+                child: Text('Import statement (CSV)'),
+              ),
               PopupMenuItem(
                 value: 'delete',
                 child: Text(

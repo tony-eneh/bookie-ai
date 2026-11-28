@@ -14,6 +14,8 @@ async function bootstrap() {
   // Security headers. CSP is off: this is a JSON API, and the Swagger UI and
   // password reset page use CDN assets / inline script.
   app.use(helmet({ contentSecurityPolicy: false }));
+  // Room for statement CSV uploads (Vercel caps request bodies at 4.5 MB).
+  app.useBodyParser('json', { limit: '3mb' });
   const configService = app.get(ConfigService);
   const apiPrefix = 'api';
   const host = configService.get<string>('HOST', '0.0.0.0');

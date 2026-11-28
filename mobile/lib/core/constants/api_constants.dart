@@ -60,6 +60,7 @@ abstract final class ApiConstants {
   static String reconcileAccount(String id) => '/accounts/$id/reconcile';
   static String accountReconciliations(String id) =>
       '/accounts/$id/reconciliations';
+  static const String importStatementCsv = '/statement-imports/csv';
 
   // Transactions
   static const String transactions = '/transactions';

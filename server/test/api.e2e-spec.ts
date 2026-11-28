@@ -127,7 +127,28 @@ describeDb('API (e2e, database)', () => {
       .expect(422);
   });
 
-  it('answers the assistant from real figures', async () => {
+  it('imports a CSV statement once, without touching the balance', async () => {
+    const accounts = await auth(api().get('/api/accounts'));
+    const account = accounts.body.data[0];
+    const csv = [
+      'Date;Narration;Withdrawal;Deposit',
+      '02/11/2026;POS SHOPRITE;4500;',
+      '03/11/2026;Transfer from Emeka;;15000',
+      '03/11/2026;Transfer from Emeka;;15000',
+    ].join('\n');
+    const first = await auth(api().post('/api/statement-imports/csv'))
+      .send({ accountId: account.id, csv })
+      .expect(201);
+    expect(first.body.data.transactionsImported).toBe(3); // both transfers
+    const again = await auth(api().post('/api/statement-imports/csv'))
+      .send({ accountId: account.id, csv })
+      .expect(201);
+    expect(again.body.data).toMatchObject({ transactionsImported: 0, duplicatesSkipped: 3 });
+    const after = await auth(api().get(`/api/accounts/${account.id}`));
+    expect(Number(after.body.data.currentBalance)).toBe(Number(account.currentBalance));
+  });
+
+    it('answers the assistant from real figures', async () => {
     const res = await auth(api().post('/api/assistant/chat'))
       .send({ message: 'How much did I spend this month?' })
       .expect(201);
