@@ -14,6 +14,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard.js';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
+import { CreateTransferDto } from './dto/create-transfer.dto.js';
 import { TransactionsService } from './transactions.service.js';
 import { CreateTransactionDto } from './dto/create-transaction.dto.js';
 import { UpdateTransactionDto } from './dto/update-transaction.dto.js';
@@ -42,6 +43,15 @@ export class TransactionsController {
     @Body() dto: CreateTransactionDto,
   ) {
     return this.transactionsService.create(user.userId, dto);
+  }
+
+  @Post('transfers')
+  @ApiOperation({ summary: 'Move money between two of your accounts' })
+  createTransfer(
+    @CurrentUser() user: { userId: string },
+    @Body() dto: CreateTransferDto,
+  ) {
+    return this.transactionsService.createTransfer(user.userId, dto);
   }
 
   @Get('stats/monthly')

@@ -1,5 +1,13 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { balanceDelta } from '../common/balance.js';
+import { FxRatesService } from '../fx-rates/fx-rates.service.js';
+import { CreateTransferDto } from './dto/create-transfer.dto.js';
 import { MerchantAliasService } from '../learning/merchant-alias.service.js';
 import { RecurringService } from '../learning/recurring.service.js';
 import { NotificationTriggersService } from '../notifications/notification-triggers.service.js';
@@ -15,7 +23,98 @@ export class TransactionsService {
     private aliases: MerchantAliasService,
     private recurring: RecurringService,
     private triggers: NotificationTriggersService,
+    private fxRates: FxRatesService,
   ) {}
+
+  /**
+   * Moves money between two of the user's accounts: an outgoing TRANSFER
+   * leg on the source and an incoming one on the destination, linked by
+   * transferPairId. Neither counts as income or spending.
+   */
+  async createTransfer(userId: string, dto: CreateTransferDto) {
+    if (dto.fromAccountId === dto.toAccountId) {
+      throw new BadRequestException('Choose two different accounts');
+    }
+    const [from, to] = await Promise.all([
+      this.prisma.account.findUnique({ where: { id: dto.fromAccountId } }),
+      this.prisma.account.findUnique({ where: { id: dto.toAccountId } }),
+    ]);
+    if (!from || from.userId !== userId || !to || to.userId !== userId) {
+      throw new NotFoundException('Account not found');
+    }
+
+    let received = dto.receivedAmount;
+    let rate = 1;
+    if (received === undefined) {
+      rate = from.currency === to.currency
+        ? 1
+        : await this.fxRates.getRate(from.currency, to.currency);
+      received = Math.round(dto.amount * rate * 100) / 100;
+    } else if (from.currency !== to.currency) {
+      rate = received / dto.amount;
+    }
+
+    const occurredAt = dto.occurredAt ? new Date(dto.occurredAt) : new Date();
+    const description = dto.description?.trim() || `Transfer to ${to.name}`;
+    const outId = randomUUID();
+    const inId = randomUUID();
+    const category = await this.prisma.category.findFirst({
+      where: { isDefault: true, type: 'TRANSFER', name: 'Internal Transfer' },
+      select: { id: true },
+    });
+
+    return this.prisma.$transaction(async (tx) => {
+      const fromAfter = await tx.account.update({
+        where: { id: from.id },
+        data: { currentBalance: { decrement: new Prisma.Decimal(dto.amount.toFixed(4)) } },
+      });
+      const toAfter = await tx.account.update({
+        where: { id: to.id },
+        data: { currentBalance: { increment: new Prisma.Decimal(received.toFixed(4)) } },
+      });
+      const common = {
+        userId,
+        type: 'TRANSFER' as const,
+        occurredAt,
+        categoryId: category?.id,
+        sourceType: 'MANUAL' as const,
+        parseConfidence: 1,
+        categoryConfidence: 1,
+      };
+      const outgoing = await tx.transaction.create({
+        data: {
+          ...common,
+          id: outId,
+          accountId: from.id,
+          amount: dto.amount,
+          currency: from.currency,
+          description,
+          transferAccountId: to.id,
+          transferPairId: inId,
+          transferIn: false,
+          balanceAfterTransaction: fromAfter.currentBalance,
+        },
+        include: { category: true, account: true, transferAccount: true },
+      });
+      const incoming = await tx.transaction.create({
+        data: {
+          ...common,
+          id: inId,
+          accountId: to.id,
+          amount: received,
+          currency: to.currency,
+          description: dto.description?.trim() || `Transfer from ${from.name}`,
+          transferAccountId: from.id,
+          transferPairId: outId,
+          transferIn: true,
+          fxRateUsed: from.currency === to.currency ? null : rate,
+          balanceAfterTransaction: toAfter.currentBalance,
+        },
+        include: { category: true, account: true, transferAccount: true },
+      });
+      return { outgoing, incoming };
+    });
+  }
 
   /** Rejects categories that are neither the user's own nor built-in. */
   private async assertCategoryUsable(userId: string, categoryId?: string | null) {
@@ -41,12 +140,12 @@ export class TransactionsService {
         throw new NotFoundException('Account not found');
       }
 
-      const balanceDelta = this.getBalanceDelta(dto.type, dto.amount);
+      const delta = balanceDelta(dto.type, dto.amount);
       const updatedAccount = await tx.account.update({
         where: { id: dto.accountId },
         data: {
           currentBalance: {
-            increment: new Prisma.Decimal(balanceDelta.toFixed(4)),
+            increment: new Prisma.Decimal(delta.toFixed(4)),
           },
         },
       });
@@ -115,7 +214,7 @@ export class TransactionsService {
     const [transactions, total] = await Promise.all([
       this.prisma.transaction.findMany({
         where,
-        include: { category: true, account: true },
+        include: { category: true, account: true, transferAccount: true },
         orderBy: { occurredAt: 'desc' },
         skip,
         take: filters.limit,
@@ -137,7 +236,7 @@ export class TransactionsService {
   async findById(id: string, userId: string) {
     const transaction = await this.prisma.transaction.findUnique({
       where: { id },
-      include: { category: true, account: true },
+      include: { category: true, account: true, transferAccount: true },
     });
 
     if (!transaction || transaction.userId !== userId) {
@@ -149,10 +248,23 @@ export class TransactionsService {
 
   async update(id: string, userId: string, dto: UpdateTransactionDto) {
     await this.assertCategoryUsable(userId, dto.categoryId);
+    const current = await this.prisma.transaction.findUnique({
+      where: { id },
+      select: { userId: true, transferPairId: true },
+    });
+    if (
+      current?.userId === userId &&
+      current.transferPairId &&
+      (dto.amount !== undefined || dto.type !== undefined || dto.currency !== undefined)
+    ) {
+      throw new BadRequestException(
+        'To change a transfer amount, delete the transfer and record it again',
+      );
+    }
     const updated = await this.prisma.$transaction(async (tx) => {
       const existing = await tx.transaction.findUnique({
         where: { id },
-        include: { category: true, account: true },
+        include: { category: true, account: true, transferAccount: true },
       });
 
       if (!existing || existing.userId !== userId) {
@@ -161,9 +273,9 @@ export class TransactionsService {
 
       const oldAmount = Number(existing.amount);
       const newAmount = dto.amount ?? oldAmount;
-      const oldDelta = this.getBalanceDelta(existing.type, oldAmount);
+      const oldDelta = balanceDelta(existing.type, oldAmount, existing.transferIn);
       const newType = dto.type ?? existing.type;
-      const newDelta = this.getBalanceDelta(newType, newAmount);
+      const newDelta = balanceDelta(newType, newAmount, existing.transferIn);
       const balanceAdjustment = newDelta - oldDelta;
 
       let balanceAfterTransaction = existing.balanceAfterTransaction;
@@ -203,7 +315,7 @@ export class TransactionsService {
       return tx.transaction.update({
         where: { id },
         data,
-        include: { category: true, account: true },
+        include: { category: true, account: true, transferAccount: true },
       });
     });
 
@@ -229,20 +341,20 @@ export class TransactionsService {
         throw new NotFoundException('Transaction not found');
       }
 
-      const balanceAdjustment = -this.getBalanceDelta(
-        transaction.type,
-        Number(transaction.amount),
-      );
-
-      await tx.account.update({
-        where: { id: transaction.accountId },
-        data: {
-          currentBalance: {
-            increment: new Prisma.Decimal(balanceAdjustment.toFixed(4)),
+      // A transfer is deleted as a whole: both legs, both balances.
+      const pair = transaction.transferPairId
+        ? await tx.transaction.findUnique({ where: { id: transaction.transferPairId } })
+        : null;
+      for (const leg of pair ? [transaction, pair] : [transaction]) {
+        const reverse = -balanceDelta(leg.type, Number(leg.amount), leg.transferIn);
+        await tx.account.update({
+          where: { id: leg.accountId },
+          data: {
+            currentBalance: { increment: new Prisma.Decimal(reverse.toFixed(4)) },
           },
-        },
-      });
-
+        });
+      }
+      if (pair) await tx.transaction.delete({ where: { id: pair.id } });
       return tx.transaction.delete({ where: { id } });
     });
   }
@@ -339,11 +451,4 @@ export class TransactionsService {
     };
   }
 
-  private getBalanceDelta(type: string, amount: number) {
-    if (type === 'INCOME') {
-      return amount;
-    }
-
-    return -amount;
-  }
 }

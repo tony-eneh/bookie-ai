@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { balanceDelta } from '../common/balance.js';
 import { MerchantAliasService } from '../learning/merchant-alias.service.js';
 import { RespondClarificationDto } from './dto/respond-clarification.dto.js';
 import type { ClarificationItemStatus } from '@prisma/client';
@@ -91,11 +92,16 @@ export class ClarificationsService {
       const nextTransactionType =
         dto.transactionType ?? clarification.transaction.type;
       const currentAmount = Number(clarification.transaction.amount);
-      const currentDelta = this.getBalanceDelta(
+      const currentDelta = balanceDelta(
         clarification.transaction.type,
         currentAmount,
+        clarification.transaction.transferIn,
       );
-      const nextDelta = this.getBalanceDelta(nextTransactionType, currentAmount);
+      const nextDelta = balanceDelta(
+        nextTransactionType,
+        currentAmount,
+        clarification.transaction.transferIn,
+      );
       const balanceAdjustment = nextDelta - currentDelta;
 
       let balanceAfterTransaction = clarification.transaction.balanceAfterTransaction;
@@ -179,11 +185,4 @@ export class ClarificationsService {
     return updated;
   }
 
-  private getBalanceDelta(type: string, amount: number) {
-    if (type === 'INCOME') {
-      return amount;
-    }
-
-    return -amount;
-  }
 }

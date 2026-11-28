@@ -156,6 +156,46 @@ describeDb('API (e2e, database)', () => {
     expect(res.body.data.answer).not.toMatch(/32%/);
   });
 
+  it('moves money between accounts as one linked transfer', async () => {
+    const make = async (name: string, initialBalance: number) =>
+      (
+        await auth(api().post('/api/accounts'))
+          .send({ name, type: 'WALLET', initialBalance })
+          .expect(201)
+      ).body.data.id as string;
+    const from = await make('Transfer source', 50000);
+    const to = await make('Transfer target', 1000);
+    const balance = async (id: string) =>
+      Number((await auth(api().get(`/api/accounts/${id}`))).body.data.currentBalance);
+
+    const res = await auth(api().post('/api/transactions/transfers'))
+      .send({ fromAccountId: from, toAccountId: to, amount: 20000 })
+      .expect(201);
+    const { outgoing, incoming } = res.body.data;
+    expect(outgoing).toMatchObject({ type: 'TRANSFER', transferIn: false, transferAccountId: to });
+    expect(incoming).toMatchObject({ type: 'TRANSFER', transferIn: true, transferAccountId: from });
+    expect(await balance(from)).toBe(30000);
+    expect(await balance(to)).toBe(21000);
+
+    // Amounts can't drift apart by editing one leg.
+    await auth(api().patch(`/api/transactions/${incoming.id}`))
+      .send({ amount: 5 })
+      .expect(400);
+    await auth(api().patch(`/api/transactions/${incoming.id}`))
+      .send({ description: 'Wallet top-up' })
+      .expect(200);
+
+    // Deleting either leg removes the whole transfer.
+    await auth(api().delete(`/api/transactions/${incoming.id}`)).expect(200);
+    expect(await balance(from)).toBe(50000);
+    expect(await balance(to)).toBe(1000);
+    await auth(api().get(`/api/transactions/${outgoing.id}`)).expect(404);
+
+    await auth(api().post('/api/transactions/transfers'))
+      .send({ fromAccountId: from, toAccountId: from, amount: 1 })
+      .expect(400);
+  });
+
   it('exports data without secrets', async () => {
     const res = await auth(api().get('/api/users/me/export')).expect(200);
     expect(res.body.data.profile.email).toBe(email);

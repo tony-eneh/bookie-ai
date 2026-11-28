@@ -1,5 +1,5 @@
 generator client {
-  provider     = "prisma-client-js"
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -117,59 +117,60 @@ enum ReconciliationSource {
 // ─── Models ──────────────────────────────────────────────────────────────────
 
 model User {
-  id                    String               @id @default(uuid()) @db.Uuid
-  email                 String               @unique
-  passwordHash          String?              @map("password_hash")
-  fullName              String               @map("full_name")
-  country               String?
-  primaryCurrency       String               @default("USD") @map("primary_currency")
-  secondaryCurrencies   String[]             @default([]) @map("secondary_currencies")
-  fxPreference          FxPreference         @default(REAL_TIME) @map("fx_preference")
-  language              String               @default("en")
-  onboardingCompleted   Boolean              @default(false) @map("onboarding_completed")
-  notificationMode      NotificationMode     @default(STANDARD) @map("notification_mode")
-  financialPersonality  FinancialPersonality @default(GENTLE) @map("financial_personality")
-  incomeStyle           IncomeStyle          @default(FIXED_SALARY) @map("income_style")
-  createdAt             DateTime             @default(now()) @map("created_at")
-  updatedAt             DateTime             @updatedAt @map("updated_at")
+  id                   String               @id @default(uuid()) @db.Uuid
+  email                String               @unique
+  passwordHash         String?              @map("password_hash")
+  fullName             String               @map("full_name")
+  country              String?
+  primaryCurrency      String               @default("USD") @map("primary_currency")
+  secondaryCurrencies  String[]             @default([]) @map("secondary_currencies")
+  fxPreference         FxPreference         @default(REAL_TIME) @map("fx_preference")
+  language             String               @default("en")
+  onboardingCompleted  Boolean              @default(false) @map("onboarding_completed")
+  notificationMode     NotificationMode     @default(STANDARD) @map("notification_mode")
+  financialPersonality FinancialPersonality @default(GENTLE) @map("financial_personality")
+  incomeStyle          IncomeStyle          @default(FIXED_SALARY) @map("income_style")
+  createdAt            DateTime             @default(now()) @map("created_at")
+  updatedAt            DateTime             @updatedAt @map("updated_at")
 
-  accounts             Account[]
-  connectedAccounts    ConnectedAccount[]
-  transactions         Transaction[]
-  categories           Category[]
-  clarifications       Clarification[]
-  budgets              Budget[]
-  goals                Goal[]
-  insights             Insight[]
-  notifications        Notification[]
-  merchantAliases      MerchantAlias[]
-  incomeTargets        IncomeTarget[]
-  statementImports     StatementImport[]
-  scenarioSimulations  ScenarioSimulation[]
-  refreshTokens        RefreshToken[]
-  passwordResetTokens  PasswordResetToken[]
+  accounts            Account[]
+  connectedAccounts   ConnectedAccount[]
+  transactions        Transaction[]
+  categories          Category[]
+  clarifications      Clarification[]
+  budgets             Budget[]
+  goals               Goal[]
+  insights            Insight[]
+  notifications       Notification[]
+  merchantAliases     MerchantAlias[]
+  incomeTargets       IncomeTarget[]
+  statementImports    StatementImport[]
+  scenarioSimulations ScenarioSimulation[]
+  refreshTokens       RefreshToken[]
+  passwordResetTokens PasswordResetToken[]
 
   @@map("users")
 }
 
 model Account {
-  id                     String                  @id @default(uuid()) @db.Uuid
-  userId                 String                  @map("user_id") @db.Uuid
-  name                   String
-  type                   AccountType
-  currency               String                  @default("USD")
-  currentBalance         Decimal                 @default(0) @map("current_balance") @db.Decimal(19, 4)
-  lastReconciledBalance  Decimal?                @map("last_reconciled_balance") @db.Decimal(19, 4)
-  lastReconciledAt       DateTime?               @map("last_reconciled_at")
-  isPrimary              Boolean                 @default(false) @map("is_primary")
-  isActive               Boolean                 @default(true) @map("is_active")
-  createdAt              DateTime                @default(now()) @map("created_at")
-  updatedAt              DateTime                @updatedAt @map("updated_at")
+  id                    String      @id @default(uuid()) @db.Uuid
+  userId                String      @map("user_id") @db.Uuid
+  name                  String
+  type                  AccountType
+  currency              String      @default("USD")
+  currentBalance        Decimal     @default(0) @map("current_balance") @db.Decimal(19, 4)
+  lastReconciledBalance Decimal?    @map("last_reconciled_balance") @db.Decimal(19, 4)
+  lastReconciledAt      DateTime?   @map("last_reconciled_at")
+  isPrimary             Boolean     @default(false) @map("is_primary")
+  isActive              Boolean     @default(true) @map("is_active")
+  createdAt             DateTime    @default(now()) @map("created_at")
+  updatedAt             DateTime    @updatedAt @map("updated_at")
 
-  user            User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  transactions    Transaction[]
-  reconciliations AccountReconciliation[]
-  statementImports StatementImport[]
+  user              User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions      Transaction[]           @relation("AccountTransactions")
+  incomingTransfers Transaction[]           @relation("TransferCounterparty")
+  reconciliations   AccountReconciliation[]
+  statementImports  StatementImport[]
 
   @@index([userId])
   @@map("accounts")
@@ -220,19 +221,27 @@ model Transaction {
   isRecurringGuess        Boolean             @default(false) @map("is_recurring_guess")
   balanceAfterTransaction Decimal?            @map("balance_after_transaction") @db.Decimal(19, 4)
   isBalanceSource         Boolean             @default(false) @map("is_balance_source")
+  // Transfers between the user's own accounts are two linked legs: an
+  // outgoing one on the source account and an incoming one (transferIn)
+  // on the destination. transferAccountId is the other account.
+  transferAccountId       String?             @map("transfer_account_id") @db.Uuid
+  transferPairId          String?             @map("transfer_pair_id") @db.Uuid
+  transferIn              Boolean             @default(false) @map("transfer_in")
   createdAt               DateTime            @default(now()) @map("created_at")
   updatedAt               DateTime            @updatedAt @map("updated_at")
 
-  user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  account          Account            @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  category         Category?          @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  clarifications   Clarification[]
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account           Account            @relation("AccountTransactions", fields: [accountId], references: [id], onDelete: Cascade)
+  transferAccount   Account?           @relation("TransferCounterparty", fields: [transferAccountId], references: [id], onDelete: SetNull)
+  category          Category?          @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  clarifications    Clarification[]
   goalContributions GoalContribution[]
 
   @@index([userId])
   @@index([accountId])
   @@index([categoryId])
   @@index([occurredAt])
+  @@index([transferPairId])
   @@map("transactions")
 }
 
@@ -357,8 +366,8 @@ model Insight {
 }
 
 model Notification {
-  id            String   @id @default(uuid()) @db.Uuid
-  userId        String   @map("user_id") @db.Uuid
+  id            String    @id @default(uuid()) @db.Uuid
+  userId        String    @map("user_id") @db.Uuid
   type          String
   title         String
   body          String
@@ -373,13 +382,13 @@ model Notification {
 }
 
 model MerchantAlias {
-  id              String  @id @default(uuid()) @db.Uuid
-  userId          String  @map("user_id") @db.Uuid
-  matchPattern    String  @map("match_pattern")
-  merchantName    String? @map("merchant_name")
-  categoryId      String  @map("category_id") @db.Uuid
-  transactionType String? @map("transaction_type")
-  confidenceBoost Float   @default(0.1) @map("confidence_boost")
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @map("user_id") @db.Uuid
+  matchPattern    String   @map("match_pattern")
+  merchantName    String?  @map("merchant_name")
+  categoryId      String   @map("category_id") @db.Uuid
+  transactionType String?  @map("transaction_type")
+  confidenceBoost Float    @default(0.1) @map("confidence_boost")
   createdAt       DateTime @default(now()) @map("created_at")
 
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -421,14 +430,14 @@ model AccountReconciliation {
 }
 
 model StatementImport {
-  id                    String  @id @default(uuid()) @db.Uuid
-  userId                String  @map("user_id") @db.Uuid
-  accountId             String  @map("account_id") @db.Uuid
-  source                String
-  fileType              String  @map("file_type")
-  parsedSuccessfully    Boolean @default(false) @map("parsed_successfully")
-  transactionsImported  Int     @default(0) @map("transactions_imported")
-  createdAt             DateTime @default(now()) @map("created_at")
+  id                   String   @id @default(uuid()) @db.Uuid
+  userId               String   @map("user_id") @db.Uuid
+  accountId            String   @map("account_id") @db.Uuid
+  source               String
+  fileType             String   @map("file_type")
+  parsedSuccessfully   Boolean  @default(false) @map("parsed_successfully")
+  transactionsImported Int      @default(0) @map("transactions_imported")
+  createdAt            DateTime @default(now()) @map("created_at")
 
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
@@ -439,10 +448,10 @@ model StatementImport {
 }
 
 model ScenarioSimulation {
-  id            String  @id @default(uuid()) @db.Uuid
-  userId        String  @map("user_id") @db.Uuid
-  inputPayload  Json    @map("input_payload")
-  resultPayload Json?   @map("result_payload")
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  inputPayload  Json     @map("input_payload")
+  resultPayload Json?    @map("result_payload")
   createdAt     DateTime @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
