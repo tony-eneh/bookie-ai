@@ -10,6 +10,11 @@ export default defineConfig({
     seed: "npm run prisma:seed",
   },
   datasource: {
-    url: process.env["DATABASE_URL"],
+    // CLI only (migrations need a direct connection, not the pooler); the
+    // running API connects with DATABASE_URL.
+    url:
+      process.env["DATABASE_URL_UNPOOLED"] ??
+      process.env["NEON_DATABASE_URL_UNPOOLED"] ??
+      process.env["DATABASE_URL"],
   },
 });

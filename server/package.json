@@ -7,6 +7,7 @@
   "license": "UNLICENSED",
   "scripts": {
     "build": "npm run prisma:generate && nest build",
+    "vercel-build": "node scripts/vercel-build.cjs",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "prisma:patch-generated-client": "node scripts/patch-prisma-generated-client.cjs",
     "prisma:generate": "prisma generate && npm run prisma:patch-generated-client",
