@@ -5,12 +5,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bookie_ai/core/constants/app_constants.dart';
 import 'package:bookie_ai/core/theme/app_colors.dart';
 import 'package:bookie_ai/core/utils/date_formatter.dart';
+import 'package:bookie_ai/data/models/budget_model.dart';
 import 'package:bookie_ai/data/models/category_model.dart';
+import 'package:bookie_ai/data/providers/auth_provider.dart';
 import 'package:bookie_ai/data/providers/budgets_provider.dart';
 import 'package:bookie_ai/data/providers/categories_provider.dart';
 
+/// Creates a budget, or edits [existing] when given.
 class CreateBudgetSheet extends ConsumerStatefulWidget {
-  const CreateBudgetSheet({super.key});
+  const CreateBudgetSheet({super.key, this.existing});
+
+  final Budget? existing;
 
   @override
   ConsumerState<CreateBudgetSheet> createState() => _CreateBudgetSheetState();
@@ -26,6 +31,27 @@ class _CreateBudgetSheetState extends ConsumerState<CreateBudgetSheet> {
   String? _selectedCategoryId;
   DateTime _startDate = DateTime.now();
   bool _isLoading = false;
+
+  bool get _isEdit => widget.existing != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final b = widget.existing;
+    if (b != null) {
+      _nameController.text = b.name;
+      _amountController.text = b.amount.toStringAsFixed(
+        b.amount.truncateToDouble() == b.amount ? 0 : 2,
+      );
+      _periodType = b.periodType;
+      _selectedCurrency = b.currency;
+      _selectedCategoryId = b.categoryId;
+      _startDate = b.startDate.toLocal();
+    } else {
+      _selectedCurrency =
+          ref.read(authProvider).user?.primaryCurrency ?? _selectedCurrency;
+    }
+  }
 
   @override
   void dispose() {
@@ -50,20 +76,26 @@ class _CreateBudgetSheetState extends ConsumerState<CreateBudgetSheet> {
     setState(() => _isLoading = true);
 
     try {
-      await ref.read(budgetsProvider.notifier).createBudget({
+      final data = {
         'name': _nameController.text.trim(),
         if (_selectedCategoryId != null) 'categoryId': _selectedCategoryId,
         'periodType': _periodType,
         'amount': double.parse(_amountController.text),
         'currency': _selectedCurrency,
-        'startDate': _startDate.toIso8601String(),
-      });
+        'startDate': _startDate.toUtc().toIso8601String(),
+      };
+      final notifier = ref.read(budgetsProvider.notifier);
+      if (_isEdit) {
+        await notifier.updateBudget(widget.existing!.id, data);
+      } else {
+        await notifier.createBudget(data);
+      }
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to create budget: ${friendlyError(e)}'),
+            content: Text('Could not save budget: ${friendlyError(e)}'),
             backgroundColor: AppColors.expense,
           ),
         );
@@ -104,7 +136,7 @@ class _CreateBudgetSheetState extends ConsumerState<CreateBudgetSheet> {
               ),
               const SizedBox(height: 20),
               Text(
-                'New Budget',
+                _isEdit ? 'Edit Budget' : 'New Budget',
                 style: textTheme.headlineSmall?.copyWith(
                   color: AppColors.textPrimary,
                   fontWeight: FontWeight.w700,
@@ -259,9 +291,9 @@ class _CreateBudgetSheetState extends ConsumerState<CreateBudgetSheet> {
                             color: Colors.white,
                           ),
                         )
-                      : const Text(
-                          'Create Budget',
-                          style: TextStyle(
+                      : Text(
+                          _isEdit ? 'Save changes' : 'Create Budget',
+                          style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
                           ),

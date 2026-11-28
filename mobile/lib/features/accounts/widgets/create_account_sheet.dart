@@ -2,6 +2,7 @@ import 'package:bookie_ai/data/services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:bookie_ai/data/providers/auth_provider.dart';
 import 'package:bookie_ai/core/constants/app_constants.dart';
 import 'package:bookie_ai/core/theme/app_colors.dart';
 import 'package:bookie_ai/data/providers/accounts_provider.dart';
@@ -38,6 +39,13 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
     'SAVINGS': '🏦',
     'BUSINESS': '💼',
   };
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedCurrency =
+        ref.read(authProvider).user?.primaryCurrency ?? _selectedCurrency;
+  }
 
   @override
   void dispose() {

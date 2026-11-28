@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bookie_ai/core/theme/app_colors.dart';
 import 'package:bookie_ai/core/utils/currency_formatter.dart';
 import 'package:bookie_ai/data/models/budget_model.dart';
+import 'package:bookie_ai/data/providers/auth_provider.dart';
 import 'package:bookie_ai/data/providers/budgets_provider.dart';
 import 'package:bookie_ai/widgets/shimmer_loading.dart';
 import 'package:bookie_ai/features/budgets/widgets/create_budget_sheet.dart';
@@ -58,23 +59,28 @@ class BudgetsScreen extends ConsumerWidget {
   }
 }
 
-class _BudgetsContent extends StatelessWidget {
+class _BudgetsContent extends ConsumerWidget {
   const _BudgetsContent({required this.budgets});
 
   final List<Budget> budgets;
 
-  double get _totalBudget =>
-      budgets.fold(0.0, (sum, b) => sum + b.amount);
-
-  double get _totalSpent =>
-      budgets.fold(0.0, (sum, b) => sum + (b.amountUsed ?? 0));
-
-  double get _overallPercent =>
-      _totalBudget > 0 ? (_totalSpent / _totalBudget * 100) : 0;
-
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final textTheme = Theme.of(context).textTheme;
+    // Amounts in different currencies can't be added up: total only the
+    // budgets in the user's currency (or the first budget's).
+    final primary = ref.watch(authProvider).user?.primaryCurrency;
+    final summaryCurrency = budgets.any((b) => b.currency == primary)
+        ? primary!
+        : budgets.first.currency;
+    final inSummary =
+        budgets.where((b) => b.currency == summaryCurrency).toList();
+    final totalBudget = inSummary.fold(0.0, (sum, b) => sum + b.amount);
+    final totalSpent =
+        inSummary.fold(0.0, (sum, b) => sum + (b.amountUsed ?? 0));
+    final overallPercent =
+        totalBudget > 0 ? (totalSpent / totalBudget * 100) : 0.0;
+    final otherCount = budgets.length - inSummary.length;
 
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -89,15 +95,29 @@ class _BudgetsContent extends StatelessWidget {
         ),
         const SizedBox(height: 20),
         _SummaryCard(
-          totalBudget: _totalBudget,
-          totalSpent: _totalSpent,
-          overallPercent: _overallPercent,
-          currency: budgets.first.currency,
+          totalBudget: totalBudget,
+          totalSpent: totalSpent,
+          overallPercent: overallPercent,
+          currency: summaryCurrency,
         ),
+        if (otherCount > 0)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              'Total covers your $summaryCurrency budgets. '
+              '$otherCount in other currencies ${otherCount == 1 ? 'is' : 'are'} listed below.',
+              style: textTheme.bodySmall?.copyWith(
+                color: AppColors.textTertiary,
+              ),
+            ),
+          ),
         const SizedBox(height: 20),
         ...budgets.map((budget) => Padding(
               padding: const EdgeInsets.only(bottom: 12),
-              child: _BudgetCard(budget: budget),
+              child: GestureDetector(
+                onTap: () => _showBudgetActions(context, ref, budget),
+                child: _BudgetCard(budget: budget),
+              ),
             )),
         const SizedBox(height: 80),
       ],
@@ -460,5 +480,85 @@ class _BudgetsShimmer extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+Future<void> _showBudgetActions(
+  BuildContext context,
+  WidgetRef ref,
+  Budget budget,
+) async {
+  final action = await showModalBottomSheet<String>(
+    context: context,
+    backgroundColor: AppColors.surface,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (ctx) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: const Icon(Icons.edit_outlined),
+            title: Text('Edit ${budget.name}'),
+            onTap: () => Navigator.pop(ctx, 'edit'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.delete_outline, color: AppColors.expense),
+            title: const Text('Delete budget',
+                style: TextStyle(color: AppColors.expense)),
+            onTap: () => Navigator.pop(ctx, 'delete'),
+          ),
+        ],
+      ),
+    ),
+  );
+  if (!context.mounted || action == null) return;
+
+  if (action == 'edit') {
+    final saved = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.primary,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => CreateBudgetSheet(existing: budget),
+    );
+    if (saved == true) await ref.read(budgetsProvider.notifier).fetchBudgets();
+    return;
+  }
+
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      backgroundColor: AppColors.surface,
+      title: Text('Delete ${budget.name}?'),
+      content: const Text(
+        'Your transactions stay; only this budget is removed.',
+        style: TextStyle(color: AppColors.textSecondary),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, true),
+          child: const Text('Delete', style: TextStyle(color: AppColors.expense)),
+        ),
+      ],
+    ),
+  );
+  if (ok != true || !context.mounted) return;
+  try {
+    await ref.read(budgetsProvider.notifier).deleteBudget(budget.id);
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Could not delete: ${friendlyError(e)}'),
+        backgroundColor: AppColors.expense,
+      ));
+    }
   }
 }

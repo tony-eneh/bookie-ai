@@ -5,6 +5,7 @@ import 'package:bookie_ai/core/theme/app_colors.dart';
 import 'package:bookie_ai/core/utils/currency_formatter.dart';
 import 'package:bookie_ai/core/utils/date_formatter.dart';
 import 'package:bookie_ai/data/providers/goals_provider.dart';
+import 'package:bookie_ai/features/goals/widgets/create_goal_sheet.dart';
 import 'package:bookie_ai/data/models/goal_model.dart';
 
 class GoalDetailScreen extends ConsumerStatefulWidget {
@@ -43,6 +44,57 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
     }
   }
 
+  Future<void> _editGoal(Goal goal) async {
+    final saved = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.primary,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => CreateGoalSheet(existing: goal),
+    );
+    if (saved == true) _loadGoal();
+  }
+
+  Future<void> _deleteGoal(Goal goal) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: Text('Delete ${goal.title}?'),
+        content: const Text(
+          'The goal and its contribution history are removed. Your accounts '
+          'and transactions are not affected.',
+          style: TextStyle(color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete',
+                style: TextStyle(color: AppColors.expense)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    try {
+      await ref.read(goalsProvider.notifier).deleteGoal(goal.id);
+      if (mounted) Navigator.of(context).pop();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Could not delete: ${friendlyError(e)}'),
+          backgroundColor: AppColors.expense,
+        ));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -68,7 +120,24 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
         : 0.0;
 
     return Scaffold(
-      appBar: AppBar(title: Text(goal.title)),
+      appBar: AppBar(
+        title: Text(goal.title),
+        actions: [
+          PopupMenuButton<String>(
+            tooltip: 'Goal options',
+            color: AppColors.surface,
+            onSelected: (v) => v == 'edit' ? _editGoal(goal) : _deleteGoal(goal),
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'edit', child: Text('Edit goal')),
+              PopupMenuItem(
+                value: 'delete',
+                child: Text('Delete goal',
+                    style: TextStyle(color: AppColors.expense)),
+              ),
+            ],
+          ),
+        ],
+      ),
       body: RefreshIndicator(
         onRefresh: _loadGoal,
         child: SingleChildScrollView(
