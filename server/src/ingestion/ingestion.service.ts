@@ -80,8 +80,6 @@ export class IngestionService {
     accountId: string | undefined,
     sourceType: 'SMS' | 'EMAIL' | 'VOICE',
   ) {
-    const parsed = await this.aiService.parseTransaction(rawText);
-
     // Resolve account: use provided accountId or find the user's primary account
     let resolvedAccountId = accountId;
     if (!resolvedAccountId) {
@@ -109,6 +107,13 @@ export class IngestionService {
         throw new NotFoundException('Account not found');
       }
     }
+
+    const targetAccount = await this.prisma.account.findUnique({
+      where: { id: resolvedAccountId },
+    });
+    const parsed = await this.aiService.parseTransaction(rawText, {
+      defaultCurrency: targetAccount?.currency,
+    });
 
     // Classify category if AI didn't determine one
     let categoryId: string | null = null;
@@ -165,7 +170,9 @@ export class IngestionService {
         type: parsed.type,
         amount: parsed.amount,
         currency: parsed.currency,
-        occurredAt: new Date(parsed.occurredAt),
+        occurredAt: Number.isNaN(Date.parse(parsed.occurredAt))
+          ? new Date()
+          : new Date(parsed.occurredAt),
         description: parsed.description,
         merchantName: parsed.merchantName,
         counterparty: parsed.counterparty,
@@ -188,13 +195,12 @@ export class IngestionService {
 
     let clarification = null;
     if (needsClarification) {
-      const question =
-        await this.aiService.generateClarificationQuestion({
-          description: parsed.description,
-          merchantName: parsed.merchantName ?? undefined,
-          amount: parsed.amount,
-          type: parsed.type,
-        });
+      const question = await this.aiService.generateClarificationQuestion({
+        description: parsed.description,
+        merchantName: parsed.merchantName ?? undefined,
+        amount: parsed.amount,
+        type: parsed.type,
+      });
 
       clarification = await this.prisma.clarification.create({
         data: {

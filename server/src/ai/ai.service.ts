@@ -1,5 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { checkShape, describeShape, type ShapeSpec } from './ai-shape.js';
+
+class ProviderAuthError extends Error {}
 
 export interface ParsedTransaction {
   amount: number;
@@ -57,18 +60,82 @@ export interface FxSimulationResult {
   explanation: string;
 }
 
+const SHAPES = {
+  parsedTransaction: {
+    amount: 'number',
+    currency: 'string',
+    type: 'enum:INCOME|EXPENSE|TRANSFER',
+    merchantName: 'string|null',
+    counterparty: 'string|null',
+    occurredAt: 'string',
+    categoryGuess: 'string|null',
+    description: 'string',
+    confidence: 'number',
+    ambiguityFlags: 'string[]',
+  },
+  category: {
+    categoryName: 'string',
+    confidence: 'number',
+    alternatives: 'array',
+  },
+  clarification: { questionText: 'string', suggestedOptions: 'string[]' },
+  financeAnswer: {
+    answer: 'string',
+    suggestions: 'string[]',
+    actionRequired: 'string?',
+  },
+  summary: {
+    title: 'string',
+    body: 'string',
+    highlights: 'string[]',
+    recommendations: 'string[]',
+  },
+  goalPlan: {
+    requiredMonthlySavings: 'number',
+    requiredMonthlyIncome: 'number',
+    riskStatus: 'enum:LOW|MEDIUM|HIGH',
+    coachingAdvice: 'string',
+  },
+  scenario: {
+    projections: 'array',
+    explanation: 'string',
+    recommendedAction: 'string',
+  },
+  fx: { convertedAmount: 'number', rateUsed: 'number', explanation: 'string' },
+} satisfies Record<string, ShapeSpec>;
+
+/** Values that mean "no real key configured" (e.g. the old prod placeholder). */
+export function isPlaceholderApiKey(key: string | undefined): boolean {
+  if (!key || !key.trim()) return true;
+  return /^(mock|none|disabled|placeholder|changeme|your[_-])/i.test(
+    key.trim(),
+  );
+}
+
 @Injectable()
 export class AiService {
   private readonly logger = new Logger(AiService.name);
+  /** Set after the provider rejects our key, to skip pointless round trips. */
+  private providerDisabledUntil = 0;
 
   constructor(private configService: ConfigService) {}
 
-  async parseTransaction(rawText: string): Promise<ParsedTransaction> {
-    const prompt = `Parse this financial message and extract transaction details: "${rawText}"`;
+  async parseTransaction(
+    rawText: string,
+    opts: { defaultCurrency?: string } = {},
+  ): Promise<ParsedTransaction> {
+    const defaultCurrency = opts.defaultCurrency ?? 'USD';
+    const prompt = `Parse this financial message and extract the transaction: "${rawText}"
+Today is ${new Date().toISOString()}. If no currency is stated, use ${defaultCurrency}.
+"amount" is always positive; "type" says the direction. "occurredAt" is an ISO 8601 date-time.
+"confidence" is 0 to 1. "ambiguityFlags" may include AMOUNT_UNCLEAR, MERCHANT_UNKNOWN, TYPE_AMBIGUOUS, DATE_UNCLEAR.`;
     const systemPrompt =
-      'You are a financial transaction parser. Extract structured data from raw text.';
-    return this.callLLM<ParsedTransaction>(prompt, systemPrompt, () =>
-      this.mockParseTransaction(rawText),
+      'You are a financial transaction parser. Extract structured data from bank alerts, receipts and notes.';
+    return this.callLLM<ParsedTransaction>(
+      prompt,
+      systemPrompt,
+      SHAPES.parsedTransaction,
+      () => this.mockParseTransaction(rawText, defaultCurrency),
     );
   }
 
@@ -76,11 +143,14 @@ export class AiService {
     description: string,
     merchantName?: string,
   ): Promise<CategoryClassification> {
-    const prompt = `Classify the category for: description="${description}", merchant="${merchantName ?? 'unknown'}"`;
-    const systemPrompt =
-      'You are a financial category classifier.';
-    return this.callLLM<CategoryClassification>(prompt, systemPrompt, () =>
-      this.mockClassifyCategory(description, merchantName),
+    const prompt = `Classify the spending/income category for: description="${description}", merchant="${merchantName ?? 'unknown'}".
+"alternatives" is a list of {"name": string, "confidence": number}.`;
+    const systemPrompt = 'You are a financial category classifier.';
+    return this.callLLM<CategoryClassification>(
+      prompt,
+      systemPrompt,
+      SHAPES.category,
+      () => this.mockClassifyCategory(description, merchantName),
     );
   }
 
@@ -90,11 +160,14 @@ export class AiService {
     amount?: number;
     type?: string;
   }): Promise<ClarificationQuestion> {
-    const prompt = `Generate a clarification question for transaction: ${JSON.stringify(transaction)}`;
+    const prompt = `Write one short question asking the user to clarify this transaction, with 2 to 4 tappable answer options: ${JSON.stringify(transaction)}`;
     const systemPrompt =
-      'You are a helpful financial assistant asking for clarification.';
-    return this.callLLM<ClarificationQuestion>(prompt, systemPrompt, () =>
-      this.mockClarificationQuestion(transaction),
+      'You are a friendly financial assistant asking for a quick clarification.';
+    return this.callLLM<ClarificationQuestion>(
+      prompt,
+      systemPrompt,
+      SHAPES.clarification,
+      () => this.mockClarificationQuestion(transaction),
     );
   }
 
@@ -102,11 +175,17 @@ export class AiService {
     question: string,
     userData: Record<string, unknown>,
   ): Promise<FinanceAnswer> {
-    const prompt = `Answer this finance question: "${question}" given user data: ${JSON.stringify(userData)}`;
+    const prompt = `Answer this finance question: "${question}"
+Use only the user's data below. If the data doesn't contain the answer, say so instead of guessing. Never invent figures.
+User data: ${JSON.stringify(userData)}
+"suggestions" are 0 to 3 short follow-up questions the user could ask next.`;
     const systemPrompt =
-      'You are a personal finance assistant. Answer clearly and suggest actions.';
-    return this.callLLM<FinanceAnswer>(prompt, systemPrompt, () =>
-      this.mockAnswerFinance(question),
+      "You are a personal finance assistant. Answer clearly and concisely, using the user's own currency.";
+    return this.callLLM<FinanceAnswer>(
+      prompt,
+      systemPrompt,
+      SHAPES.financeAnswer,
+      () => this.mockAnswerFinance(question),
     );
   }
 
@@ -114,10 +193,10 @@ export class AiService {
     type: 'weekly' | 'monthly',
     data: Record<string, unknown>,
   ): Promise<Summary> {
-    const prompt = `Generate a ${type} financial summary from: ${JSON.stringify(data)}`;
+    const prompt = `Generate a ${type} financial summary from this data. Use only these figures: ${JSON.stringify(data)}`;
     const systemPrompt =
-      'You are a financial report generator. Provide actionable summaries.';
-    return this.callLLM<Summary>(prompt, systemPrompt, () =>
+      'You are a financial report generator. Provide short, actionable summaries.';
+    return this.callLLM<Summary>(prompt, systemPrompt, SHAPES.summary, () =>
       this.mockSummary(type, data),
     );
   }
@@ -130,9 +209,8 @@ export class AiService {
     averageIncome: number;
   }): Promise<GoalPlan> {
     const prompt = `Plan a savings goal: ${JSON.stringify(input)}`;
-    const systemPrompt =
-      'You are a financial goal planning advisor.';
-    return this.callLLM<GoalPlan>(prompt, systemPrompt, () =>
+    const systemPrompt = 'You are a financial goal planning advisor.';
+    return this.callLLM<GoalPlan>(prompt, systemPrompt, SHAPES.goalPlan, () =>
       this.mockPlanGoal(input),
     );
   }
@@ -141,11 +219,14 @@ export class AiService {
     scenarioType: string;
     parameters: Record<string, unknown>;
   }): Promise<ScenarioResult> {
-    const prompt = `Simulate financial scenario: ${JSON.stringify(input)}`;
-    const systemPrompt =
-      'You are a financial scenario simulator.';
-    return this.callLLM<ScenarioResult>(prompt, systemPrompt, () =>
-      this.mockSimulateScenario(input),
+    const prompt = `Simulate this financial scenario over the next 6 months: ${JSON.stringify(input)}
+"projections" is a list of {"month": "YYYY-MM", "balance": number}.`;
+    const systemPrompt = 'You are a financial scenario simulator.';
+    return this.callLLM<ScenarioResult>(
+      prompt,
+      systemPrompt,
+      SHAPES.scenario,
+      () => this.mockSimulateScenario(input),
     );
   }
 
@@ -156,32 +237,46 @@ export class AiService {
   }): Promise<FxSimulationResult> {
     const prompt = `Simulate FX conversion: ${JSON.stringify(input)}`;
     const systemPrompt = 'You are an FX conversion assistant.';
-    return this.callLLM<FxSimulationResult>(prompt, systemPrompt, () =>
-      this.mockSimulateFx(input),
+    return this.callLLM<FxSimulationResult>(
+      prompt,
+      systemPrompt,
+      SHAPES.fx,
+      () => this.mockSimulateFx(input),
+    );
+  }
+
+  /** True when a real AI provider is configured and currently usable. */
+  isLive(): boolean {
+    return (
+      !isPlaceholderApiKey(this.configService.get<string>('OPENAI_API_KEY')) &&
+      Date.now() >= this.providerDisabledUntil
     );
   }
 
   private async callLLM<T>(
     prompt: string,
     systemPrompt: string,
+    shape: ShapeSpec,
     mockFn: () => T,
   ): Promise<T> {
-    const apiKey = this.configService.get<string>('OPENAI_API_KEY');
-    if (!apiKey) {
-      this.logger.debug('AI mock mode – OPENAI_API_KEY is not configured');
+    if (!this.isLive()) {
       return mockFn();
     }
 
     try {
       const responseText = await this.callOpenAiCompatibleApi(
-        systemPrompt,
+        `${systemPrompt}\n\n${describeShape(shape)}`,
         `${prompt}\n\nReturn only valid JSON. Do not wrap it in markdown.`,
       );
-      return JSON.parse(responseText) as T;
+      return checkShape<T>(JSON.parse(responseText), shape);
     } catch (error) {
-      this.logger.warn(
-        `AI provider call failed, falling back to mock response: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      const message = error instanceof Error ? error.message : String(error);
+      if (error instanceof ProviderAuthError) {
+        this.providerDisabledUntil = Date.now() + 10 * 60 * 1000;
+        this.logger.error(`${message}. Using mock AI for the next 10 minutes.`);
+      } else {
+        this.logger.warn(`AI call failed, falling back to mock: ${message}`);
+      }
       return mockFn();
     }
   }
@@ -191,11 +286,16 @@ export class AiService {
     userPrompt: string,
   ) {
     const apiKey = this.configService.getOrThrow<string>('OPENAI_API_KEY');
-    const model = this.configService.get<string>('OPENAI_MODEL') ?? 'gpt-4o-mini';
-    const baseUrl = (this.configService.get<string>('OPENAI_BASE_URL') ?? 'https://api.openai.com/v1').replace(/\/$/, '');
+    const model =
+      this.configService.get<string>('OPENAI_MODEL') ?? 'gpt-4o-mini';
+    const baseUrl = (
+      this.configService.get<string>('OPENAI_BASE_URL') ??
+      'https://api.openai.com/v1'
+    ).replace(/\/$/, '');
 
     const response = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
+      signal: AbortSignal.timeout(20_000),
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${apiKey}`,
@@ -210,12 +310,21 @@ export class AiService {
       }),
     });
 
+    if (response.status === 401 || response.status === 403) {
+      throw new ProviderAuthError(
+        `AI provider rejected the API key (status ${response.status})`,
+      );
+    }
     if (!response.ok) {
       throw new Error(`AI provider responded with status ${response.status}`);
     }
 
     const payload = (await response.json()) as {
-      choices?: Array<{ message?: { content?: string | Array<{ type?: string; text?: string }> } }>;
+      choices?: Array<{
+        message?: {
+          content?: string | Array<{ type?: string; text?: string }>;
+        };
+      }>;
     };
     const firstChoice = payload.choices?.[0]?.message?.content;
 
@@ -239,7 +348,10 @@ export class AiService {
 
   // ─── Mock implementations ──────────────────────────────────────────────────
 
-  private mockParseTransaction(rawText: string): ParsedTransaction {
+  private mockParseTransaction(
+    rawText: string,
+    defaultCurrency: string,
+  ): ParsedTransaction {
     const lower = rawText.toLowerCase();
     const amountMatch = rawText.match(/[\d,]+\.?\d*/);
     const amount = amountMatch
@@ -251,11 +363,10 @@ export class AiService {
       lower.includes('credited') ||
       lower.includes('salary') ||
       lower.includes('deposit');
-    const isTransfer =
-      lower.includes('transfer') || lower.includes('sent to');
+    const isTransfer = lower.includes('transfer') || lower.includes('sent to');
 
     const currencyMatch = rawText.match(
-      /\b(USD|EUR|GBP|NGN|KES|GHS|ZAR|CAD|AUD|JPY)\b/i,
+      /\b(USD|EUR|GBP|NGN|KES|GHS|ZAR|CAD|AUD|JPY|KRW|INR|CNY)\b/i,
     );
 
     const merchantPatterns = [
@@ -274,14 +385,21 @@ export class AiService {
     const ambiguityFlags: string[] = [];
     if (amount === 0) ambiguityFlags.push('AMOUNT_UNCLEAR');
     if (!merchantName) ambiguityFlags.push('MERCHANT_UNKNOWN');
-    if (!isIncome && !isTransfer && !lower.includes('debit') && !lower.includes('spent'))
+    if (
+      !isIncome &&
+      !isTransfer &&
+      !lower.includes('debit') &&
+      !lower.includes('spent')
+    )
       ambiguityFlags.push('TYPE_AMBIGUOUS');
 
     const confidence = Math.max(0.4, 1 - ambiguityFlags.length * 0.2);
 
     return {
-      amount: amount || 25.0,
-      currency: currencyMatch ? currencyMatch[0].toUpperCase() : 'USD',
+      amount,
+      currency: currencyMatch
+        ? currencyMatch[0].toUpperCase()
+        : defaultCurrency,
       type: isIncome ? 'INCOME' : isTransfer ? 'TRANSFER' : 'EXPENSE',
       merchantName,
       counterparty: merchantName,
@@ -498,7 +616,14 @@ export class AiService {
     scenarioType: string;
     parameters: Record<string, unknown>;
   }): ScenarioResult {
-    const months = ['Month 1', 'Month 2', 'Month 3', 'Month 4', 'Month 5', 'Month 6'];
+    const months = [
+      'Month 1',
+      'Month 2',
+      'Month 3',
+      'Month 4',
+      'Month 5',
+      'Month 6',
+    ];
     const baseBalance = (input.parameters.currentBalance as number) ?? 5000;
     const monthlyChange = (input.parameters.monthlyChange as number) ?? 200;
 
