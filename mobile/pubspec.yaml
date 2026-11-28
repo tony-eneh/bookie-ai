@@ -1,7 +1,7 @@
 name: bookie_ai
 description: "Track nothing. Know everything. Voice-first AI-powered personal finance app."
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.1.0+2
 
 environment:
   sdk: '>=3.2.0 <4.0.0'
