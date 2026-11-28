@@ -2,6 +2,7 @@ import 'package:bookie_ai/data/services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:bookie_ai/core/theme/app_colors.dart';
 import 'package:bookie_ai/data/models/category_model.dart';
@@ -80,23 +81,43 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
       return;
     }
 
+    final accounts = ref.read(accountsProvider).valueOrNull ?? const [];
+    final account = accounts.where((a) => a.id == _selectedAccountId).firstOrNull ??
+        accounts.firstOrNull;
+    if (account == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Add an account first, then record transactions in it.'),
+          backgroundColor: AppColors.expense,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     try {
-      final account = ref.read(accountsProvider).valueOrNull?.firstWhere(
-            (a) => a.id == _selectedAccountId,
-            orElse: () => ref.read(accountsProvider).valueOrNull!.first,
-          );
+      // Keep the picked day but the current time, so "today" entries sort
+      // correctly and don't shift to the previous day when sent as UTC.
+      final now = DateTime.now();
+      final occurredAt = DateTime(
+        _selectedDate.year,
+        _selectedDate.month,
+        _selectedDate.day,
+        now.hour,
+        now.minute,
+        now.second,
+      );
 
       await ref.read(transactionsProvider.notifier).createTransaction({
         'type': _type,
         'amount': amount,
-        'currency': account?.currency ?? 'USD',
+        'currency': account.currency,
         'description': _descriptionController.text.trim(),
-        'occurredAt': _selectedDate.toIso8601String(),
+        'occurredAt': occurredAt.toUtc().toIso8601String(),
         'sourceType': 'MANUAL',
         if (_selectedCategoryId != null) 'categoryId': _selectedCategoryId,
-        if (_selectedAccountId != null) 'accountId': _selectedAccountId,
+        'accountId': account.id,
         if (_noteController.text.trim().isNotEmpty)
           'note': _noteController.text.trim(),
       });
@@ -249,7 +270,37 @@ class _AddTransactionSheetState extends ConsumerState<AddTransactionSheet> {
               loading: () => const SizedBox.shrink(),
               error: (_, __) => const SizedBox.shrink(),
               data: (accounts) {
-                if (accounts.isEmpty) return const SizedBox.shrink();
+                if (accounts.isEmpty) {
+                  return Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: AppColors.warning.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.account_balance_wallet_outlined,
+                            color: AppColors.warning),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Text(
+                            'You need an account (bank, wallet or cash) to '
+                            'record transactions in.',
+                            style: TextStyle(color: AppColors.textSecondary),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            final router = GoRouter.of(context);
+                            Navigator.of(context).pop();
+                            router.go('/accounts');
+                          },
+                          child: const Text('Add one'),
+                        ),
+                      ],
+                    ),
+                  );
+                }
                 _selectedAccountId ??=
                     accounts.where((a) => a.isPrimary).firstOrNull?.id ??
                         accounts.first.id;
