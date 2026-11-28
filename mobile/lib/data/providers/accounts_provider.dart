@@ -58,22 +58,17 @@ class AccountsNotifier extends StateNotifier<AsyncValue<List<Account>>> {
     });
   }
 
-  Future<Account> reconcile(String id, double actualBalance) async {
+  /// Records the real balance for an account. The server creates an
+  /// adjustment transaction for any drift. Returns the drift
+  /// (actual minus what BookieAI had).
+  Future<double> reconcile(String id, double actualBalance) async {
     final response = await _api.post(
       ApiConstants.reconcileAccount(id),
-      data: {'actualBalance': actualBalance},
+      data: {'balance': actualBalance, 'source': 'MANUAL'},
     );
-    final updated =
-        Account.fromJson(response.data['data'] as Map<String, dynamic>);
-
-    state.whenData((accounts) {
-      state = AsyncValue.data([
-        for (final a in accounts)
-          if (a.id == id) updated else a,
-      ]);
-    });
-
-    return updated;
+    final result = response.data['data'] as Map<String, dynamic>;
+    await fetchAccounts();
+    return (result['drift'] as num?)?.toDouble() ?? 0;
   }
 }
 

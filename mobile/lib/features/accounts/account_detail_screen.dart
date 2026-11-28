@@ -553,10 +553,23 @@ class _ReconcileSheetState extends ConsumerState<_ReconcileSheet> {
 
     setState(() => _isLoading = true);
     try {
-      await ref
+      final drift = await ref
           .read(accountsProvider.notifier)
           .reconcile(account.id, balance);
-      if (mounted) Navigator.of(context).pop();
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      Navigator.of(context).pop();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            drift.abs() < 0.005
+                ? 'Balance confirmed. Everything matches.'
+                : 'Balance updated. Added an adjustment of '
+                    '${drift > 0 ? '+' : ''}${drift.toStringAsFixed(2)} '
+                    '${account.currency}.',
+          ),
+        ),
+      );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
