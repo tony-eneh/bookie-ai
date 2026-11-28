@@ -86,6 +86,16 @@ export class FxRatesService {
     };
   }
 
+  /**
+   * exchangerate-api.com wants the base in the path (/v4/latest/USD); with
+   * ?base= it redirects to an HTML page. Use {base} in FX_API_URL for
+   * providers with another shape; otherwise the base is appended.
+   */
+  static ratesUrl(apiUrl: string, base: string): string {
+    if (apiUrl.includes('{base}')) return apiUrl.replace('{base}', base);
+    return `${apiUrl.replace(/\/+$/, '')}/${encodeURIComponent(base)}`;
+  }
+
   async fetchRates(baseCurrency: string): Promise<void> {
     const apiUrl = this.config.get<string>('FX_API_URL');
     if (!apiUrl) {
@@ -94,8 +104,8 @@ export class FxRatesService {
     }
 
     try {
-      const url = `${apiUrl}?base=${baseCurrency}`;
-      const response = await fetch(url);
+      const url = FxRatesService.ratesUrl(apiUrl, baseCurrency);
+      const response = await fetch(url, { signal: AbortSignal.timeout(10_000) });
 
       if (!response.ok) {
         throw new Error(`FX API responded with status ${response.status}`);
@@ -112,27 +122,20 @@ export class FxRatesService {
 
       const now = new Date();
 
-      const upserts = Object.entries(rates).map(
-        ([targetCurrency, rate]) =>
-          this.prisma.fxRate.upsert({
-            where: {
-              baseCurrency_targetCurrency: { baseCurrency, targetCurrency },
-            },
-            update: { rate, source: 'api', fetchedAt: now },
-            create: {
-              baseCurrency,
-              targetCurrency,
-              rate,
-              source: 'api',
-              fetchedAt: now,
-            },
-          }),
+      const entries = Object.entries(rates).filter(
+        ([code, rate]) => /^[A-Z]{3}$/.test(code) && Number.isFinite(rate),
       );
+      const targets = entries.map(([code]) => code);
+      const values = entries.map(([, rate]) => rate);
 
-      await Promise.all(upserts);
-      this.logger.log(
-        `Fetched ${upserts.length} rates for base ${baseCurrency}`,
-      );
+      // One statement instead of ~160 parallel upserts.
+      await this.prisma.$executeRaw`
+        INSERT INTO fx_rates (id, base_currency, target_currency, rate, source, fetched_at)
+        SELECT gen_random_uuid(), ${baseCurrency}, t, r, 'api', ${now}
+        FROM unnest(${targets}::text[], ${values}::numeric[]) AS x(t, r)
+        ON CONFLICT (base_currency, target_currency)
+        DO UPDATE SET rate = EXCLUDED.rate, source = 'api', fetched_at = EXCLUDED.fetched_at`;
+      this.logger.log(`Fetched ${entries.length} rates for base ${baseCurrency}`);
     } catch (error) {
       this.logger.error(
         `Failed to fetch FX rates for ${baseCurrency}, falling back to cached rates`,

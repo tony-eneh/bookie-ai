@@ -36,7 +36,12 @@ Optional:
   serves itself (`/api/auth/reset-password`), built from the request host;
   set this only to send users somewhere else. (`APP_URL` is no longer used.)
 - `GOOGLE_CLIENT_ID`: Google sign-in.
-- `FX_API_URL`: exchange rate source.
+- `FX_API_URL`: exchange rate source, e.g.
+  `https://api.exchangerate-api.com/v4/latest` (the base currency is
+  appended to the path; use `{base}` for other URL shapes).
+- `CRON_SECRET`: enables the daily job (`GET /api/jobs/daily`, scheduled in
+  `server/vercel.json`). Vercel sends it as a bearer token. Without it the
+  job endpoint returns 503 and nothing runs.
 - `CORS_MODE`, `CORS_ORIGINS`, `CORS_CREDENTIALS`: see `server/src/main.ts`.
 - `RESET_PASSWORD_EXPIRATION_MINUTES`.
 - `TOKEN_ENCRYPTION_KEY`: optional 32-byte base64 key for encrypting stored

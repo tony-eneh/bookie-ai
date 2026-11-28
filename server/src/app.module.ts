@@ -21,6 +21,7 @@ import { NotificationsModule } from './notifications/notifications.module.js';
 import { StatementImportsModule } from './statement-imports/statement-imports.module.js';
 import { AppController } from './app.controller.js';
 import { IncomeTargetsModule } from './income-targets/income-targets.module.js';
+import { JobsModule } from './jobs/jobs.module.js';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { IncomeTargetsModule } from './income-targets/income-targets.module.js';
     NotificationsModule,
     StatementImportsModule,
     IncomeTargetsModule,
+    JobsModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
