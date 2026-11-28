@@ -14,6 +14,9 @@ export interface AssistantContext {
     spent: number;
     amount: number;
     percentageUsed: number;
+    remaining?: number;
+    /** Plain words, which models follow more reliably than flags. */
+    status?: 'within budget' | 'nearly used up' | 'over budget';
   }[];
   goals: {
     title: string;

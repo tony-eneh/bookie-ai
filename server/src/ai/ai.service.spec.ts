@@ -20,6 +20,12 @@ describe('checkShape', () => {
     ).toEqual({ amount: 12.5, type: 'EXPENSE', merchantName: null, tags: [] });
   });
 
+  it('treats null as absent for optional fields', () => {
+    expect(
+      checkShape({ answer: 'Hi', note: null }, { answer: 'string', note: 'string?' }),
+    ).toEqual({ answer: 'Hi' });
+  });
+
   it('rejects missing or wrongly typed fields', () => {
     expect(() =>
       checkShape({ type: 'EXPENSE', merchantName: null, tags: [] }, spec),

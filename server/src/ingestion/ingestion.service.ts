@@ -110,8 +110,15 @@ export class IngestionService {
       if (seen) return { transaction: seen, clarification: null, duplicate: true };
     }
 
+    const categoryNames = (
+      await this.prisma.category.findMany({
+        where: { OR: [{ userId }, { isDefault: true }] },
+        select: { name: true },
+      })
+    ).map((c) => c.name);
     const parsed = await this.aiService.parseTransaction(text, {
       defaultCurrency: account.currency,
+      categories: [...new Set(categoryNames)],
     });
     if (!(parsed.amount > 0)) {
       throw new UnprocessableEntityException(
@@ -285,7 +292,16 @@ export class IngestionService {
       return { categoryId: alias.categoryId, categoryConfidence: 0.95, learned: true };
     }
 
-    const findByName = (name: string) =>
+    const findByName = async (name: string) =>
+      // Exact name first (the parser picks from the user's list), then loose.
+      (await this.prisma.category.findFirst({
+        where: {
+          type,
+          name: { equals: name, mode: 'insensitive' },
+          OR: [{ userId }, { isDefault: true }],
+        },
+        orderBy: { userId: { sort: 'asc', nulls: 'last' } },
+      })) ??
       this.prisma.category.findFirst({
         where: {
           type,

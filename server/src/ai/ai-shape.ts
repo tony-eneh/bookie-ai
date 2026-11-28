@@ -25,8 +25,11 @@ export function checkShape<T>(value: unknown, spec: ShapeSpec): T {
     const type = optional ? rawSpec.slice(0, -1) : rawSpec;
     const v = input[key];
 
-    if (v === undefined) {
-      if (optional) continue;
+    if (v === undefined || (optional && v === null)) {
+      if (optional) {
+        delete out[key]; // models send null for "not applicable"
+        continue;
+      }
       throw new ShapeError(`AI response is missing "${key}"`);
     }
     out[key] = checkField(key, v, type);

@@ -2,6 +2,11 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { checkShape, describeShape, type ShapeSpec } from './ai-shape.js';
 import { mockAnswer, type AssistantContext } from './mock-answers.js';
+import {
+  computeGoalPlan,
+  computeScenario,
+  type GoalPlanInput,
+} from './planning.js';
 
 class ProviderAuthError extends Error {}
 
@@ -123,12 +128,17 @@ export class AiService {
 
   async parseTransaction(
     rawText: string,
-    opts: { defaultCurrency?: string } = {},
+    opts: { defaultCurrency?: string; categories?: string[] } = {},
   ): Promise<ParsedTransaction> {
     const defaultCurrency = opts.defaultCurrency ?? 'USD';
+    const categoryRule = opts.categories?.length
+      ? `"categoryGuess" must be exactly one of these names, or null if none fits: ${opts.categories.join(', ')}.`
+      : '"categoryGuess" is a short spending/income category name, or null.';
     const prompt = `Parse this financial message and extract the transaction: "${rawText}"
 Today is ${new Date().toISOString()}. If no currency is stated, use ${defaultCurrency}.
-"amount" is always positive; "type" says the direction. "occurredAt" is an ISO 8601 date-time.
+"amount" is always positive. "type": INCOME for money received (salary, a transfer from someone, a refund), EXPENSE for purchases, bills and payments, TRANSFER only for money the user sends to another person or moves between their own accounts.
+"merchantName" is the shop or payee name only, without dates, references or card numbers.
+"occurredAt" is an ISO 8601 date-time. ${categoryRule}
 "confidence" is 0 to 1. "ambiguityFlags" may include AMOUNT_UNCLEAR, MERCHANT_UNKNOWN, TYPE_AMBIGUOUS, DATE_UNCLEAR.`;
     const systemPrompt =
       'You are a financial transaction parser. Extract structured data from bank alerts, receipts and notes.';
@@ -177,7 +187,8 @@ Today is ${new Date().toISOString()}. If no currency is stated, use ${defaultCur
     userData: Record<string, unknown>,
   ): Promise<FinanceAnswer> {
     const prompt = `Answer this finance question: "${question}"
-Use only the user's data below. If the data doesn't contain the answer, say so instead of guessing. Never invent figures.
+Answer exactly what was asked, in two or three sentences, using only the user's data below. If the data doesn't contain the answer, say so instead of guessing. Never invent figures. Amounts are in "currency" unless an item has its own currency.
+Data guide: monthIncome/monthExpenses are this calendar month; topCategories is this month's spending by category; budgets are this period's budgets with spent and percentageUsed; goals are savings goals with progress and status.
 User data: ${JSON.stringify(userData)}
 "suggestions" are 0 to 3 short follow-up questions the user could ask next.`;
     const systemPrompt =
@@ -202,33 +213,64 @@ User data: ${JSON.stringify(userData)}
     );
   }
 
-  async planGoal(input: {
-    targetAmount: number;
-    targetDate: string;
-    currentSavings: number;
-    monthlyExpenses: number;
-    averageIncome: number;
-  }): Promise<GoalPlan> {
-    const prompt = `Plan a savings goal: ${JSON.stringify(input)}`;
-    const systemPrompt = 'You are a financial goal planning advisor.';
-    return this.callLLM<GoalPlan>(prompt, systemPrompt, SHAPES.goalPlan, () =>
-      this.mockPlanGoal(input),
+  /**
+   * Numbers come from computeGoalPlan; the model only writes the advice
+   * (a mock sentence when it can't).
+   */
+  async planGoal(
+    input: GoalPlanInput,
+    opts: { currency?: string } = {},
+  ): Promise<GoalPlan & { monthsLeft: number }> {
+    const numbers = computeGoalPlan(input);
+    const currency = opts.currency ?? 'USD';
+    const fallback = this.mockPlanGoal(input);
+    const { coachingAdvice } = await this.callLLM<{ coachingAdvice: string }>(
+      `A user wants to save ${input.targetAmount} ${currency} by ${input.targetDate} and has ${input.currentSavings} ${currency} so far.
+They earn about ${input.averageIncome} and spend about ${input.monthlyExpenses} ${currency} a month.
+Computed plan (do not change these numbers): save ${numbers.requiredMonthlySavings} ${currency} a month for ${numbers.monthsLeft} months; risk is ${numbers.riskStatus}.
+Write two short sentences of practical coaching for this plan, quoting amounts in ${currency}.`,
+      'You are a warm, practical personal finance coach.',
+      { coachingAdvice: 'string' },
+      () => ({ coachingAdvice: fallback.coachingAdvice }),
     );
+    return {
+      requiredMonthlySavings: numbers.requiredMonthlySavings,
+      requiredMonthlyIncome: numbers.requiredMonthlyIncome,
+      riskStatus: numbers.riskStatus,
+      monthsLeft: numbers.monthsLeft,
+      coachingAdvice,
+    };
   }
 
-  async simulateScenario(input: {
-    scenarioType: string;
-    parameters: Record<string, unknown>;
-  }): Promise<ScenarioResult> {
-    const prompt = `Simulate this financial scenario over the next 6 months: ${JSON.stringify(input)}
-"projections" is a list of {"month": "YYYY-MM", "balance": number}.`;
-    const systemPrompt = 'You are a financial scenario simulator.';
-    return this.callLLM<ScenarioResult>(
-      prompt,
-      systemPrompt,
-      SHAPES.scenario,
-      () => this.mockSimulateScenario(input),
+  /**
+   * Projections come from computeScenario; the model only explains them.
+   */
+  async simulateScenario(
+    input: { scenarioType: string; parameters: Record<string, unknown> },
+    opts: { currency?: string } = {},
+  ): Promise<ScenarioResult & { baselineProjections: { month: string; balance: number }[] }> {
+    const numbers = computeScenario(input.parameters);
+    const currency = opts.currency ?? 'USD';
+    const last = numbers.projections[numbers.projections.length - 1];
+    const lastBaseline =
+      numbers.baselineProjections[numbers.baselineProjections.length - 1];
+    const text = await this.callLLM<{ explanation: string; recommendedAction: string }>(
+      `What-if scenario "${input.scenarioType}" with parameters ${JSON.stringify(input.parameters)}.
+Computed results (do not change these numbers): the balance changes by ${numbers.monthlyNet} ${currency} a month (versus ${numbers.baselineMonthlyNet} without the change), reaching ${last.balance} ${currency} by ${last.month} (versus ${lastBaseline.balance}), a difference of ${Math.round((last.balance - lastBaseline.balance) * 100) / 100} ${currency}.
+Only use these numbers; do not calculate new ones. "explanation" is two short sentences on what this means; "recommendedAction" is one concrete next step. Quote amounts in ${currency}.`,
+      'You are a clear, practical personal finance assistant.',
+      { explanation: 'string', recommendedAction: 'string' },
+      () => ({
+        explanation: `With this change your balance moves by ${numbers.monthlyNet} ${currency} a month, reaching ${last.balance} ${currency} by ${last.month} (${lastBaseline.balance} ${currency} without it).`,
+        recommendedAction:
+          'Try it for a month and compare your real balance with the projection.',
+      }),
     );
+    return {
+      projections: numbers.projections,
+      baselineProjections: numbers.baselineProjections,
+      ...text,
+    };
   }
 
   async simulateFx(input: {
@@ -598,41 +640,7 @@ User data: ${JSON.stringify(userData)}
     };
   }
 
-  private mockSimulateScenario(input: {
-    scenarioType: string;
-    parameters: Record<string, unknown>;
-  }): ScenarioResult {
-    const months = [
-      'Month 1',
-      'Month 2',
-      'Month 3',
-      'Month 4',
-      'Month 5',
-      'Month 6',
-    ];
-    const baseBalance = (input.parameters.currentBalance as number) ?? 5000;
-    const monthlyChange = (input.parameters.monthlyChange as number) ?? 200;
 
-    const projections = months.map((month, i) => ({
-      month,
-      balance: Number((baseBalance + monthlyChange * (i + 1)).toFixed(2)),
-    }));
-
-    const scenarioDescriptions: Record<string, string> = {
-      salary_increase: `With the projected salary increase, your balance would grow steadily over 6 months, reaching ${projections[5].balance}.`,
-      expense_reduction: `Reducing expenses as planned would allow you to save an additional ${monthlyChange * 6} over 6 months.`,
-      investment: `Based on estimated returns, your investment could grow to ${projections[5].balance} in 6 months.`,
-    };
-
-    return {
-      projections,
-      explanation:
-        scenarioDescriptions[input.scenarioType] ??
-        `Under this scenario, your projected balance after 6 months would be ${projections[5].balance}. This assumes steady monthly changes of ${monthlyChange}.`,
-      recommendedAction:
-        'Monitor progress monthly and adjust your budget if actual results deviate by more than 10% from projections.',
-    };
-  }
 
   private mockSimulateFx(input: {
     amount: number;

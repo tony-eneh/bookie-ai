@@ -92,7 +92,8 @@ export class AssistantService {
       averageIncome: number;
     },
   ) {
-    const plan = await this.aiService.planGoal(input);
+    const { currency } = await this.gatherUserContext(userId);
+    const plan = await this.aiService.planGoal(input, { currency });
 
     await this.prisma.scenarioSimulation.create({
       data: {
@@ -109,7 +110,20 @@ export class AssistantService {
     userId: string,
     input: { scenarioType: string; parameters: Record<string, unknown> },
   ) {
-    const result = await this.aiService.simulateScenario(input);
+    // Missing figures default to the user's own (balance, this month).
+    const ctx = await this.gatherUserContext(userId);
+    const result = await this.aiService.simulateScenario(
+      {
+        ...input,
+        parameters: {
+          currentBalance: ctx.totalBalance,
+          monthlyIncome: ctx.monthIncome,
+          monthlyExpenses: ctx.monthExpenses,
+          ...input.parameters,
+        },
+      },
+      { currency: ctx.currency },
+    );
 
     await this.prisma.scenarioSimulation.create({
       data: {
@@ -151,6 +165,12 @@ export class AssistantService {
         spent: b.spent,
         amount: b.budgetAmount,
         percentageUsed: b.percentageUsed,
+        remaining: b.remaining,
+        status: b.isOverspent
+          ? ('over budget' as const)
+          : b.percentageUsed >= 80
+            ? ('nearly used up' as const)
+            : ('within budget' as const),
       })),
       goals: d.goalProgress.map((g) => ({
         title: g.title,
