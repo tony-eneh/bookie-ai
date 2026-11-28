@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { checkShape, describeShape, type ShapeSpec } from './ai-shape.js';
+import { mockAnswer, type AssistantContext } from './mock-answers.js';
 
 class ProviderAuthError extends Error {}
 
@@ -185,7 +186,7 @@ User data: ${JSON.stringify(userData)}
       prompt,
       systemPrompt,
       SHAPES.financeAnswer,
-      () => this.mockAnswerFinance(question),
+      () => mockAnswer(question, userData as Partial<AssistantContext>),
     );
   }
 
@@ -494,45 +495,7 @@ User data: ${JSON.stringify(userData)}
     };
   }
 
-  private mockAnswerFinance(question: string): FinanceAnswer {
-    const lower = question.toLowerCase();
 
-    if (lower.includes('spend') || lower.includes('spending')) {
-      return {
-        answer:
-          'Based on your recent transactions, your top spending categories this month are Food & Dining (32%), Transport (18%), and Subscriptions (12%). You are within budget for most categories.',
-        suggestions: [
-          'Review your dining expenses',
-          'Consider meal-prepping to save on food costs',
-          'Check for unused subscriptions',
-        ],
-        actionRequired: undefined,
-      };
-    }
-
-    if (lower.includes('save') || lower.includes('savings')) {
-      return {
-        answer:
-          'Your current savings rate is approximately 15% of your income. Financial experts recommend saving at least 20%. Consider automating transfers to your savings account.',
-        suggestions: [
-          'Set up automatic savings transfers',
-          'Review subscriptions for potential cuts',
-          'Create a dedicated savings goal',
-        ],
-        actionRequired: 'Create a savings goal to track progress',
-      };
-    }
-
-    return {
-      answer: `Great question! Based on your financial data, here's what I can tell you: Your finances are generally healthy with a positive cash flow trend. Keep monitoring your spending against your budget limits.`,
-      suggestions: [
-        'Review your monthly dashboard',
-        'Check budget progress',
-        'Update your financial goals',
-      ],
-      actionRequired: undefined,
-    };
-  }
 
   private mockSummary(
     type: 'weekly' | 'monthly',

@@ -2,17 +2,23 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AiService } from '../ai/ai.service.js';
+import type { AssistantContext } from '../ai/mock-answers.js';
+import { InsightsService } from '../insights/insights.service.js';
 
 @Injectable()
 export class AssistantService {
   constructor(
     private prisma: PrismaService,
     private aiService: AiService,
+    private insights: InsightsService,
   ) {}
 
   async chat(userId: string, message: string) {
     const userData = await this.gatherUserContext(userId);
-    const response = await this.aiService.answerFinanceQuestion(message, userData);
+    const response = await this.aiService.answerFinanceQuestion(
+      message,
+      userData as unknown as Record<string, unknown>,
+    );
     return response;
   }
 
@@ -123,39 +129,39 @@ export class AssistantService {
     return this.aiService.simulateFx(input);
   }
 
-  private async gatherUserContext(userId: string) {
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-
-    const [user, accounts, recentTxs] = await Promise.all([
-      this.prisma.user.findUnique({ where: { id: userId } }),
-      this.prisma.account.findMany({ where: { userId, isActive: true } }),
-      this.prisma.transaction.findMany({
-        where: { userId, occurredAt: { gte: monthStart } },
-        orderBy: { occurredAt: 'desc' },
-        take: 20,
+  /** The user's figures for the assistant, converted to their currency. */
+  private async gatherUserContext(userId: string): Promise<AssistantContext> {
+    const [user, d] = await Promise.all([
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { fullName: true },
       }),
+      this.insights.getDashboard(userId),
     ]);
-
-    const totalBalance = accounts.reduce(
-      (sum, a) => sum + Number(a.currentBalance),
-      0,
-    );
-    const monthlyIncome = recentTxs
-      .filter((tx) => tx.type === 'INCOME')
-      .reduce((sum, tx) => sum + Number(tx.amount), 0);
-    const monthlyExpenses = recentTxs
-      .filter((tx) => tx.type === 'EXPENSE')
-      .reduce((sum, tx) => sum + Number(tx.amount), 0);
-
     return {
       name: user?.fullName,
-      currency: user?.primaryCurrency,
-      totalBalance: Number(totalBalance.toFixed(2)),
-      monthlyIncome: Number(monthlyIncome.toFixed(2)),
-      monthlyExpenses: Number(monthlyExpenses.toFixed(2)),
-      accountCount: accounts.length,
-      recentTransactionCount: recentTxs.length,
+      currency: d.currency,
+      totalBalance: d.totalBalance,
+      monthIncome: d.totalIncome,
+      monthExpenses: d.totalExpenses,
+      topCategories: d.topCategories.map((c) => ({ name: c.name, total: c.total })),
+      budgets: d.budgetProgress.map((b) => ({
+        name: b.name,
+        currency: b.currency,
+        spent: b.spent,
+        amount: b.budgetAmount,
+        percentageUsed: b.percentageUsed,
+      })),
+      goals: d.goalProgress.map((g) => ({
+        title: g.title,
+        currency: g.currency,
+        currentAmount: g.currentAmount,
+        targetAmount: g.targetAmount,
+        percentage: g.percentage,
+        status: g.status,
+      })),
+      pendingClarifications: d.pendingClarifications,
     };
   }
+
 }
