@@ -7,7 +7,17 @@ import { UpdateBudgetDto } from './dto/update-budget.dto.js';
 export class BudgetsService {
   constructor(private prisma: PrismaService) {}
 
+  /** Rejects categories that are neither the user's own nor built-in. */
+  private async assertCategoryUsable(userId: string, categoryId?: string | null) {
+    if (!categoryId) return;
+    const ok = await this.prisma.category.count({
+      where: { id: categoryId, OR: [{ userId }, { isDefault: true }] },
+    });
+    if (!ok) throw new NotFoundException('Category not found');
+  }
+
   async create(userId: string, dto: CreateBudgetDto) {
+    await this.assertCategoryUsable(userId, dto.categoryId);
     return this.prisma.budget.create({
       data: {
         userId,
@@ -53,6 +63,7 @@ export class BudgetsService {
 
   async update(id: string, userId: string, dto: UpdateBudgetDto) {
     await this.findById(id, userId);
+    await this.assertCategoryUsable(userId, dto.categoryId);
 
     const data: Record<string, unknown> = {};
     if (dto.name !== undefined) data.name = dto.name;
