@@ -49,6 +49,25 @@ export class StatementImportsService {
         throw new ForbiddenException('Cannot import into this account');
       }
 
+      const categoryIds = [
+        ...new Set(
+          dto.transactions
+            .map((t) => t.categoryId)
+            .filter((id): id is string => Boolean(id)),
+        ),
+      ];
+      if (categoryIds.length > 0) {
+        const allowed = await tx.category.count({
+          where: {
+            id: { in: categoryIds },
+            OR: [{ userId }, { isDefault: true }],
+          },
+        });
+        if (allowed !== categoryIds.length) {
+          throw new BadRequestException('Unknown category in imported rows');
+        }
+      }
+
       const statementImport = await tx.statementImport.create({
         data: {
           userId,
