@@ -22,6 +22,11 @@ class ApiService {
   late final Dio _dio;
   final Ref _ref;
   bool _isRefreshing = false;
+
+  /// Emits when the session can no longer be refreshed (refresh token missing,
+  /// expired or revoked). Tokens have already been cleared at that point.
+  final _sessionExpired = StreamController<void>.broadcast();
+  Stream<void> get onSessionExpired => _sessionExpired.stream;
   final _refreshQueue =
       <({Completer<Response> completer, RequestOptions options})>[];
 
@@ -87,6 +92,8 @@ class ApiService {
   Future<String?> getAccessToken() {
     return _storage.read(key: _accessTokenKey);
   }
+
+  Future<String?> getRefreshToken() => _getRefreshToken();
 
   Future<String?> _getRefreshToken() {
     return _storage.read(key: _refreshTokenKey);
@@ -174,7 +181,11 @@ class ApiService {
 
       return retryResponse;
     } catch (e) {
-      await clearTokens();
+      final sessionDead = e is! DioException || _isAuthFailure(e);
+      if (sessionDead) {
+        await clearTokens();
+        _sessionExpired.add(null);
+      }
       for (final entry in _refreshQueue) {
         entry.completer.completeError(e);
       }
@@ -183,6 +194,14 @@ class ApiService {
       _isRefreshing = false;
       _refreshQueue.clear();
     }
+  }
+
+  /// True when the refresh call itself was rejected (as opposed to a network
+  /// failure, where the session may still be fine once back online).
+  bool _isAuthFailure(DioException e) {
+    if (e.type == DioExceptionType.cancel) return true; // no refresh token
+    final status = e.response?.statusCode;
+    return status == 400 || status == 401 || status == 403;
   }
 
   InterceptorsWrapper _errorInterceptor() {

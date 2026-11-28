@@ -45,6 +45,15 @@ class StorageService {
     return Map<String, dynamic>.from(data);
   }
 
+  /// Clears the signed-in user's data but keeps device preferences such as
+  /// the onboarding flag.
+  Future<void> clearSession() async {
+    await Future.wait([
+      _userBox.clear(),
+      _cacheBox.clear(),
+    ]);
+  }
+
   Future<void> clearAll() async {
     await Future.wait([
       _userBox.clear(),

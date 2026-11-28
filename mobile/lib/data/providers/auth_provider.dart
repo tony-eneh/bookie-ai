@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bookie_ai/data/services/api_service.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -38,8 +40,25 @@ class AuthNotifier extends StateNotifier<AuthState> {
   final AuthService _authService;
   final StorageService _storageService;
 
+  late final StreamSubscription<void> _sessionSub;
+
   AuthNotifier(this._authService, this._storageService)
-      : super(const AuthState());
+      : super(const AuthState()) {
+    _sessionSub = _authService.onSessionExpired.listen((_) => _signedOut(
+          message: 'Your session has expired. Please sign in again.',
+        ));
+  }
+
+  @override
+  void dispose() {
+    _sessionSub.cancel();
+    super.dispose();
+  }
+
+  Future<void> _signedOut({String? message}) async {
+    await _storageService.clearSession();
+    state = AuthState(status: AuthStatus.unauthenticated, error: message);
+  }
 
   Future<void> checkAuthStatus() async {
     state = state.copyWith(status: AuthStatus.loading);
@@ -54,6 +73,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
       await _storageService.saveUser(user);
       state = state.copyWith(status: AuthStatus.authenticated, user: user);
     } on DioException {
+      // A failed refresh clears the tokens: the session is gone. Otherwise
+      // this is most likely a network problem, so fall back to the cache.
+      if (!await _authService.isAuthenticated()) {
+        await _signedOut();
+        return;
+      }
       final cachedUser = await _storageService.getUser();
       if (cachedUser != null) {
         state = state.copyWith(
@@ -103,8 +128,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       await _authService.logout();
     } finally {
-      await _storageService.clearAll();
-      state = const AuthState(status: AuthStatus.unauthenticated);
+      await _signedOut();
     }
   }
 

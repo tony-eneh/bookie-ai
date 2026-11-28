@@ -53,9 +53,19 @@ class AuthService {
     return User.fromJson(data['user'] as Map<String, dynamic>);
   }
 
+  /// Revokes the refresh token on the server, then clears local tokens even
+  /// if the request fails (e.g. offline).
   Future<void> logout() async {
     try {
-      await _api.post(ApiConstants.logout);
+      final refreshToken = await _api.getRefreshToken();
+      if (refreshToken != null) {
+        await _api.post(
+          ApiConstants.logout,
+          data: {'refreshToken': refreshToken},
+        );
+      }
+    } catch (_) {
+      // Best effort: the user is signed out locally regardless.
     } finally {
       await _api.clearTokens();
     }
@@ -66,9 +76,7 @@ class AuthService {
     return User.fromJson(response.data['data'] as Map<String, dynamic>);
   }
 
-  Future<void> refreshToken() async {
-    await _api.hasValidToken();
-  }
+  Stream<void> get onSessionExpired => _api.onSessionExpired;
 
   Future<bool> isAuthenticated() => _api.hasValidToken();
 }

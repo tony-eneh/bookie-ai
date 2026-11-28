@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,18 +16,43 @@ import 'package:bookie_ai/features/budgets/budgets_screen.dart';
 import 'package:bookie_ai/features/goals/goals_screen.dart';
 import 'package:bookie_ai/features/goals/goal_detail_screen.dart';
 import 'package:bookie_ai/features/settings/settings_screen.dart';
+import 'package:bookie_ai/data/providers/auth_provider.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
-  return AppRouter.router;
+  // Re-run redirects whenever the auth status changes (e.g. session expiry).
+  final authStatus = ValueNotifier(ref.read(authProvider).status);
+  ref.listen(authProvider, (_, next) => authStatus.value = next.status);
+  ref.onDispose(authStatus.dispose);
+  return AppRouter.create(authStatus);
 });
+
+/// Routes reachable without being signed in.
+const publicRoutes = {
+  '/splash',
+  '/onboarding',
+  '/login',
+  '/register',
+  '/forgot-password',
+};
+
+/// Sends signed-out users to the login screen from any protected route.
+@visibleForTesting
+String? authRedirect(AuthStatus status, String location) {
+  if (status == AuthStatus.unauthenticated &&
+      !publicRoutes.contains(location)) {
+    return '/login';
+  }
+  return null;
+}
 
 abstract final class AppRouter {
   static final _rootNavigatorKey = GlobalKey<NavigatorState>();
   static final _shellNavigatorKey = GlobalKey<NavigatorState>();
 
-  static final router = GoRouter(
+  static GoRouter create(ValueListenable<AuthStatus> authStatus) => GoRouter(
     navigatorKey: _rootNavigatorKey,
     initialLocation: '/splash',
+    refreshListenable: authStatus,
     routes: [
       GoRoute(
         path: '/splash',
@@ -107,9 +133,8 @@ abstract final class AppRouter {
         ),
       ),
     ],
-    redirect: (context, state) {
-      return null;
-    },
+    redirect: (context, state) =>
+        authRedirect(authStatus.value, state.matchedLocation),
   );
 }
 

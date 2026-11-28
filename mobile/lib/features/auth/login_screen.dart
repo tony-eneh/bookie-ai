@@ -19,6 +19,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _obscurePassword = true;
 
   @override
+  void initState() {
+    super.initState();
+    // Explain why the user landed here, e.g. after their session expired.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final auth = ref.read(authProvider);
+      if (mounted &&
+          auth.status == AuthStatus.unauthenticated &&
+          auth.error != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(auth.error!),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    });
+  }
+
+  @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
