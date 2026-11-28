@@ -45,8 +45,14 @@ export class MailService {
     ].join('\n');
 
     if (!this.transporter || !this.fromAddress) {
+      // The link carries a live reset token: only print it outside production.
+      const isProduction =
+        this.configService.get<string>('NODE_ENV') === 'production' ||
+        Boolean(this.configService.get<string>('VERCEL'));
       this.logger.warn(
-        `SMTP is not configured. Password reset link for ${payload.to}: ${payload.resetUrl}`,
+        isProduction
+          ? `SMTP is not configured. Password reset email to ${payload.to} was not sent.`
+          : `SMTP is not configured. Password reset link for ${payload.to}: ${payload.resetUrl}`,
       );
       return;
     }
@@ -56,7 +62,16 @@ export class MailService {
       to: payload.to,
       subject,
       text,
-      html: `<p>Hi ${payload.fullName},</p><p>Use the link below to reset your BookieAI password. The link expires in ${payload.expiresInMinutes} minutes.</p><p><a href="${payload.resetUrl}">${payload.resetUrl}</a></p><p>If you did not request this, you can ignore this email.</p>`,
+      html: `<p>Hi ${escapeHtml(payload.fullName)},</p><p>Use the link below to reset your BookieAI password. The link expires in ${payload.expiresInMinutes} minutes.</p><p><a href="${escapeHtml(payload.resetUrl)}">${escapeHtml(payload.resetUrl)}</a></p><p>If you did not request this, you can ignore this email.</p>`,
     });
   }
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
