@@ -1,3 +1,4 @@
+import 'package:bookie_ai/data/services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bookie_ai/core/theme/app_colors.dart';
@@ -283,16 +284,29 @@ class _GoalDetailScreenState extends ConsumerState<GoalDetailScreen> {
                 onPressed: () async {
                   final amount = double.tryParse(amountController.text) ?? 0;
                   if (amount <= 0) return;
+                  final messenger = ScaffoldMessenger.of(context);
                   Navigator.pop(ctx);
-                  await ref.read(goalsProvider.notifier).addContribution(
-                    goal.id,
-                    {
-                      'amount': amount,
-                      'currency': goal.targetCurrency,
-                      'contributionDate': DateTime.now().toIso8601String(),
-                    },
-                  );
-                  _loadGoal();
+                  try {
+                    await ref.read(goalsProvider.notifier).addContribution(
+                      goal.id,
+                      {
+                        'amount': amount,
+                        'currency': goal.targetCurrency,
+                        'contributionDate':
+                            DateTime.now().toUtc().toIso8601String(),
+                      },
+                    );
+                    _loadGoal();
+                  } catch (e) {
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Could not add contribution: ${friendlyError(e)}',
+                        ),
+                        backgroundColor: AppColors.expense,
+                      ),
+                    );
+                  }
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.accent,

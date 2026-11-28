@@ -58,16 +58,17 @@ class GoalsNotifier extends StateNotifier<AsyncValue<List<Goal>>> {
     });
   }
 
-  Future<void> addContribution(
+  /// Adds a contribution, then reloads the goal (the server returns the
+  /// contribution record, not the goal).
+  Future<Goal> addContribution(
     String goalId,
     Map<String, dynamic> data,
   ) async {
-    final response = await _api.post(
+    await _api.post(
       ApiConstants.goalContributions(goalId),
-      data: data,
+      data: {'sourceType': 'MANUAL', ...data},
     );
-    final updated =
-        Goal.fromJson(response.data['data'] as Map<String, dynamic>);
+    final updated = await getGoal(goalId);
 
     state.whenData((goals) {
       state = AsyncValue.data([
@@ -75,6 +76,7 @@ class GoalsNotifier extends StateNotifier<AsyncValue<List<Goal>>> {
           if (g.id == goalId) updated else g,
       ]);
     });
+    return updated;
   }
 
   Future<Goal> getGoal(String id) async {

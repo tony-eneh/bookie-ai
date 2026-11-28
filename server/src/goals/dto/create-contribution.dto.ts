@@ -16,7 +16,8 @@ export class CreateContributionDto {
   @IsDateString()
   contributionDate?: string;
 
-  @ApiProperty({ example: 'manual' })
+  @ApiPropertyOptional({ example: 'MANUAL', default: 'MANUAL' })
+  @IsOptional()
   @IsString()
-  sourceType: string;
+  sourceType?: string;
 }
