@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { MerchantAliasService } from '../learning/merchant-alias.service.js';
 import { RecurringService } from '../learning/recurring.service.js';
+import { NotificationTriggersService } from '../notifications/notification-triggers.service.js';
 import { CreateTransactionDto } from './dto/create-transaction.dto.js';
 import { UpdateTransactionDto } from './dto/update-transaction.dto.js';
 import { TransactionFilterDto } from './dto/transaction-filter.dto.js';
@@ -13,6 +14,7 @@ export class TransactionsService {
     private prisma: PrismaService,
     private aliases: MerchantAliasService,
     private recurring: RecurringService,
+    private triggers: NotificationTriggersService,
   ) {}
 
   /** Rejects categories that are neither the user's own nor built-in. */
@@ -74,6 +76,7 @@ export class TransactionsService {
       });
     });
     if (await this.recurring.detect(created)) created.isRecurringGuess = true;
+    await this.triggers.afterTransaction(created);
     return created;
   }
 
@@ -204,6 +207,9 @@ export class TransactionsService {
       });
     });
 
+    if (dto.amount !== undefined || dto.categoryId || dto.type) {
+      await this.triggers.afterTransaction(updated);
+    }
     if (dto.categoryId) {
       await this.aliases.learn(
         userId,

@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AiService } from '../ai/ai.service.js';
 import { FxRatesService } from '../fx-rates/fx-rates.service.js';
@@ -8,7 +8,6 @@ export type Convert = (amount: number, from: string, to: string) => number;
 
 @Injectable()
 export class InsightsService {
-  private readonly logger = new Logger(InsightsService.name);
 
   constructor(
     private prisma: PrismaService,
@@ -16,29 +15,9 @@ export class InsightsService {
     private fxRates: FxRatesService,
   ) {}
 
-  /**
-   * Loads the FX rates for the given (from, to) pairs once, so amounts can be
-   * converted synchronously. A missing rate leaves amounts unconverted (and is
-   * logged) rather than failing the whole request.
-   */
-  async loadConverter(pairs: Iterable<[string, string]>): Promise<Convert> {
-    const rates = new Map<string, number>();
-    const wanted = new Set<string>();
-    for (const [from, to] of pairs) {
-      if (from && to && from !== to) wanted.add(`${from}>${to}`);
-    }
-    await Promise.all(
-      [...wanted].map(async (key) => {
-        const [from, to] = key.split('>');
-        try {
-          rates.set(key, await this.fxRates.getRate(from, to));
-        } catch {
-          this.logger.warn(`No FX rate for ${from}->${to}; left unconverted`);
-        }
-      }),
-    );
-    return (amount, from, to) =>
-      !from || from === to ? amount : amount * (rates.get(`${from}>${to}`) ?? 1);
+  /** See FxRatesService.loadConverter. */
+  loadConverter(pairs: Iterable<[string, string]>): Promise<Convert> {
+    return this.fxRates.loadConverter(pairs);
   }
 
   private async primaryCurrency(userId: string): Promise<string> {

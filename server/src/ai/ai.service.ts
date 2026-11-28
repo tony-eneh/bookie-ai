@@ -377,7 +377,12 @@ User data: ${JSON.stringify(userData)}
     for (const { pattern, group } of merchantPatterns) {
       const match = rawText.match(pattern);
       if (match) {
-        merchantName = match[group].trim();
+        // Alerts run on into the date/reference: "SPAR VI on 28-11-2026".
+        merchantName =
+          match[group]
+            .replace(/\s+(on|ref|via|date).*$/i, '')
+            .replace(/[\s.,-]+$/, '')
+            .trim() || null;
         break;
       }
     }

@@ -47,6 +47,33 @@ export class FxRatesService {
     );
   }
 
+  /**
+   * Loads the rates for the given (from, to) pairs once, so many amounts can
+   * be converted synchronously. A missing rate leaves amounts unconverted
+   * (logged) rather than failing the caller.
+   */
+  async loadConverter(
+    pairs: Iterable<[string, string]>,
+  ): Promise<(amount: number, from: string, to: string) => number> {
+    const rates = new Map<string, number>();
+    const wanted = new Set<string>();
+    for (const [from, to] of pairs) {
+      if (from && to && from !== to) wanted.add(`${from}>${to}`);
+    }
+    await Promise.all(
+      [...wanted].map(async (key) => {
+        const [from, to] = key.split('>');
+        try {
+          rates.set(key, await this.getRate(from, to));
+        } catch {
+          this.logger.warn(`No FX rate for ${from}->${to}; left unconverted`);
+        }
+      }),
+    );
+    return (amount, from, to) =>
+      !from || from === to ? amount : amount * (rates.get(`${from}>${to}`) ?? 1);
+  }
+
   async convert(
     amount: number,
     fromCurrency: string,

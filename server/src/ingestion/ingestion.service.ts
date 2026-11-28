@@ -11,6 +11,7 @@ import { AiService } from '../ai/ai.service.js';
 import { FxRatesService } from '../fx-rates/fx-rates.service.js';
 import { MerchantAliasService } from '../learning/merchant-alias.service.js';
 import { RecurringService } from '../learning/recurring.service.js';
+import { NotificationTriggersService } from '../notifications/notification-triggers.service.js';
 import { ParseSmsDto } from './dto/parse-sms.dto.js';
 import { ParseEmailDto } from './dto/parse-email.dto.js';
 import { VoiceLogDto } from './dto/voice-log.dto.js';
@@ -31,6 +32,7 @@ export class IngestionService {
     private fxRates: FxRatesService,
     private aliases: MerchantAliasService,
     private recurring: RecurringService,
+    private triggers: NotificationTriggersService,
   ) {}
 
   async parseSms(userId: string, dto: ParseSmsDto) {
@@ -221,6 +223,13 @@ export class IngestionService {
     if (await this.recurring.detect(result.transaction)) {
       result.transaction.isRecurringGuess = true;
     }
+    if (result.clarification) {
+      await this.triggers.clarificationNeeded(
+        result.transaction,
+        result.clarification.questionText,
+      );
+    }
+    await this.triggers.afterTransaction(result.transaction);
     return result;
   }
 
