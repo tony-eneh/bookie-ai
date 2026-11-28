@@ -7,6 +7,7 @@ import 'package:bookie_ai/data/providers/accounts_provider.dart';
 import 'package:bookie_ai/data/providers/auth_provider.dart';
 import 'package:bookie_ai/data/providers/dashboard_provider.dart';
 import 'package:bookie_ai/data/services/api_service.dart';
+import 'package:bookie_ai/features/settings/privacy_actions.dart';
 
 typedef _Option = ({String value, String label, String? description});
 
@@ -119,6 +120,23 @@ class SettingsScreen extends ConsumerWidget {
             subtitle: _labelFor(_fxOptions, user?.fxPreference),
             onTap: () => _pickPreference(context, ref, 'fxPreference',
                 'Exchange rates', _fxOptions, user?.fxPreference),
+          ),
+          const SizedBox(height: 8),
+          _buildSectionHeader(context, 'Privacy & data'),
+          _buildTile(
+            context,
+            icon: Icons.download_outlined,
+            title: 'Export my data',
+            subtitle: 'Everything BookieAI stores about you, as a file',
+            onTap: () => exportMyData(context, ref),
+          ),
+          _buildTile(
+            context,
+            icon: Icons.delete_forever_outlined,
+            title: 'Delete account',
+            subtitle: 'Permanently erase your account and data',
+            titleColor: AppColors.expense,
+            onTap: () => confirmDeleteAccount(context, ref),
           ),
           const SizedBox(height: 8),
           _buildSectionHeader(context, 'Account'),

@@ -118,4 +118,6 @@ abstract final class ApiConstants {
   // Users
   static const String userProfile = '/users/me';
   static const String userPreferences = '/users/preferences';
+  static const String userExport = '/users/me/export';
+  static const String userDelete = '/users/me/delete';
 }
