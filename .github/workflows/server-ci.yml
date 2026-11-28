@@ -16,10 +16,24 @@ jobs:
     defaults:
       run:
         working-directory: server
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: bookieai
+          POSTGRES_USER: bookieai
+          POSTGRES_PASSWORD: bookieai
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U bookieai"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
       DATABASE_URL: postgresql://bookieai:bookieai@localhost:5432/bookieai
       JWT_SECRET: ci-test-secret
-      REDIS_URL: redis://localhost:6379
+      E2E_DATABASE: '1'
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -34,14 +48,23 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Validate Prisma schema
+        run: npx prisma validate
+
       - name: Generate Prisma client
         run: npm run prisma:generate
 
-      - name: Build server
+      - name: Type-check and build
         run: npm run build
+
+      - name: Apply migrations to a fresh database
+        run: npx prisma migrate deploy
+
+      - name: Check migrations match the schema
+        run: npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code
 
       - name: Run unit tests
         run: npm test -- --runInBand
 
-      - name: Run e2e tests
+      - name: Run e2e tests (with database)
         run: npm run test:e2e -- --runInBand
