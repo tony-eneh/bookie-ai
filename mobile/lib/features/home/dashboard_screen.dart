@@ -63,7 +63,6 @@ class _DashboardContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
 
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 20),

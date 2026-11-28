@@ -13,15 +13,26 @@ export class AccountsService {
   constructor(private prisma: PrismaService) {}
 
   async create(userId: string, dto: CreateAccountDto) {
-    return this.prisma.account.create({
-      data: {
-        userId,
-        name: dto.name,
-        type: dto.type,
-        currency: dto.currency ?? 'USD',
-        currentBalance: dto.initialBalance ?? 0,
-        isPrimary: dto.isPrimary ?? false,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      if (dto.isPrimary) await this.clearPrimary(tx, userId);
+      return tx.account.create({
+        data: {
+          userId,
+          name: dto.name,
+          type: dto.type,
+          currency: dto.currency ?? 'USD',
+          currentBalance: dto.initialBalance ?? 0,
+          isPrimary: dto.isPrimary ?? false,
+        },
+      });
+    });
+  }
+
+  /** A user has at most one primary account. */
+  private clearPrimary(tx: Prisma.TransactionClient, userId: string) {
+    return tx.account.updateMany({
+      where: { userId, isPrimary: true },
+      data: { isPrimary: false },
     });
   }
 
@@ -93,9 +104,9 @@ export class AccountsService {
     if (dto.initialBalance !== undefined)
       data.currentBalance = dto.initialBalance;
 
-    return this.prisma.account.update({
-      where: { id: account.id },
-      data,
+    return this.prisma.$transaction(async (tx) => {
+      if (dto.isPrimary) await this.clearPrimary(tx, userId);
+      return tx.account.update({ where: { id: account.id }, data });
     });
   }
 

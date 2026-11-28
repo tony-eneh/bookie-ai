@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bookie_ai/core/constants/api_constants.dart';
 import 'package:bookie_ai/data/models/account_model.dart';
+import 'package:bookie_ai/data/models/transaction_model.dart';
+import 'package:bookie_ai/core/utils/json_parsers.dart';
 import 'package:bookie_ai/data/services/api_service.dart';
 
 class AccountsNotifier extends StateNotifier<AsyncValue<List<Account>>> {
@@ -75,4 +77,50 @@ class AccountsNotifier extends StateNotifier<AsyncValue<List<Account>>> {
 final accountsProvider =
     StateNotifierProvider<AccountsNotifier, AsyncValue<List<Account>>>((ref) {
   return AccountsNotifier(ref.read(apiServiceProvider));
+});
+
+/// The latest transactions in one account (filtered by the server, so it
+/// isn't limited to whatever page the main list happened to load).
+final accountTransactionsProvider = FutureProvider.autoDispose
+    .family<List<Transaction>, String>((ref, accountId) async {
+  final response = await ref.read(apiServiceProvider).get(
+    ApiConstants.transactions,
+    queryParameters: {'accountId': accountId, 'limit': '10', 'page': '1'},
+  );
+  final body = response.data['data'];
+  final items = body is Map ? body['data'] as List<dynamic> : body as List<dynamic>;
+  return items
+      .map((e) => Transaction.fromJson(e as Map<String, dynamic>))
+      .toList();
+});
+
+class Reconciliation {
+  const Reconciliation({
+    required this.balance,
+    required this.source,
+    required this.drift,
+    required this.createdAt,
+  });
+
+  final double balance;
+  final String source;
+  final double drift;
+  final DateTime createdAt;
+
+  factory Reconciliation.fromJson(Map<String, dynamic> json) => Reconciliation(
+        balance: parseDouble(json['balance']),
+        source: json['source'] as String? ?? 'MANUAL',
+        drift: parseDouble(json['driftAmount']),
+        createdAt: DateTime.parse(json['createdAt'] as String),
+      );
+}
+
+final reconciliationsProvider = FutureProvider.autoDispose
+    .family<List<Reconciliation>, String>((ref, accountId) async {
+  final response = await ref
+      .read(apiServiceProvider)
+      .get(ApiConstants.accountReconciliations(accountId));
+  return (response.data['data'] as List<dynamic>)
+      .map((e) => Reconciliation.fromJson(e as Map<String, dynamic>))
+      .toList();
 });

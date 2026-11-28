@@ -58,6 +58,8 @@ abstract final class ApiConstants {
   static const String accounts = '/accounts';
   static String account(String id) => '/accounts/$id';
   static String reconcileAccount(String id) => '/accounts/$id/reconcile';
+  static String accountReconciliations(String id) =>
+      '/accounts/$id/reconciliations';
 
   // Transactions
   static const String transactions = '/transactions';
