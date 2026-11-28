@@ -6,6 +6,7 @@ import 'package:bookie_ai/core/theme/app_colors.dart';
 import 'package:bookie_ai/core/utils/currency_formatter.dart';
 import 'package:bookie_ai/core/utils/json_parsers.dart';
 import 'package:bookie_ai/data/services/api_service.dart';
+import 'package:bookie_ai/features/insights/income_target_card.dart';
 
 /// GET /insights/monthly, already converted to the user's currency.
 class MonthlyReport {
@@ -113,7 +114,7 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
               data: (r) => RefreshIndicator(
                 onRefresh: () async =>
                     ref.invalidate(monthlyReportProvider(_month)),
-                child: _ReportView(report: r),
+                child: _ReportView(report: r, showTarget: _isCurrentMonth),
               ),
             ),
           ),
@@ -124,9 +125,10 @@ class _InsightsScreenState extends ConsumerState<InsightsScreen> {
 }
 
 class _ReportView extends StatelessWidget {
-  const _ReportView({required this.report});
+  const _ReportView({required this.report, this.showTarget = false});
 
   final MonthlyReport report;
+  final bool showTarget;
 
   String _money(double v, {bool sign = false}) =>
       CurrencyFormatter.format(v, currency: report.currency, showSign: sign);
@@ -138,6 +140,10 @@ class _ReportView extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
       children: [
+        if (showTarget) ...[
+          const IncomeTargetCard(),
+          const SizedBox(height: 12),
+        ],
         Row(
           children: [
             Expanded(

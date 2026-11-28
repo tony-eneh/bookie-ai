@@ -20,6 +20,7 @@ import { ConnectedAccountsModule } from './connected-accounts/connected-accounts
 import { NotificationsModule } from './notifications/notifications.module.js';
 import { StatementImportsModule } from './statement-imports/statement-imports.module.js';
 import { AppController } from './app.controller.js';
+import { IncomeTargetsModule } from './income-targets/income-targets.module.js';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { AppController } from './app.controller.js';
     ConnectedAccountsModule,
     NotificationsModule,
     StatementImportsModule,
+    IncomeTargetsModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

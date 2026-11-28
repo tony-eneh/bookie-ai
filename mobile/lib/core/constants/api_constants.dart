@@ -105,6 +105,11 @@ abstract final class ApiConstants {
   static const String readAllNotifications = '/notifications/read-all';
   static const String unreadCount = '/notifications/unread-count';
 
+  // Income targets
+  static const String incomeTargets = '/income-targets';
+  static const String currentIncomeTarget = '/income-targets/current';
+  static String incomeTarget(String id) => '/income-targets/$id';
+
   // Assistant
   static const String assistantChat = '/assistant/chat';
   static const String voiceQuery = '/assistant/voice-query';
