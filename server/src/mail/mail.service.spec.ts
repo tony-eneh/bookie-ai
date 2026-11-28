@@ -36,6 +36,29 @@ describe('MailService', () => {
     });
   });
 
+  it('sends replies to the support inbox, from the verified domain, by default', async () => {
+    const fetchSpy = jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValue(new Response('{"id":"1"}', { status: 200 }));
+    await new MailService(config({ RESEND_API_KEY: 're_test' })).sendPasswordResetEmail(reset);
+
+    const body = JSON.parse((fetchSpy.mock.calls[0][1] as RequestInit).body as string);
+    expect(body.from).toBe('BookieAI <no-reply@mail.joypinness.com>');
+    expect(body.reply_to).toBe('support@joypinness.com');
+  });
+
+  it('lets MAIL_REPLY_TO override the reply address', async () => {
+    const fetchSpy = jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValue(new Response('{"id":"1"}', { status: 200 }));
+    await new MailService(
+      config({ RESEND_API_KEY: 're_test', MAIL_REPLY_TO: 'help@example.com' }),
+    ).sendPasswordResetEmail(reset);
+
+    const body = JSON.parse((fetchSpy.mock.calls[0][1] as RequestInit).body as string);
+    expect(body.reply_to).toBe('help@example.com');
+  });
+
   it('surfaces Resend errors (e.g. unverified domain)', async () => {
     jest
       .spyOn(global, 'fetch')
