@@ -17,6 +17,7 @@ import 'package:bookie_ai/features/budgets/budgets_screen.dart';
 import 'package:bookie_ai/features/goals/goals_screen.dart';
 import 'package:bookie_ai/features/goals/goal_detail_screen.dart';
 import 'package:bookie_ai/features/settings/settings_screen.dart';
+import 'package:bookie_ai/features/clarifications/clarifications_screen.dart';
 import 'package:bookie_ai/data/providers/auth_provider.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -128,6 +129,10 @@ abstract final class AppRouter {
         builder: (context, state) => TransactionDetailScreen(
           transactionId: state.pathParameters['id']!,
         ),
+      ),
+      GoRoute(
+        path: '/clarifications',
+        builder: (context, state) => const ClarificationsScreen(),
       ),
       GoRoute(
         path: '/goals',

@@ -74,6 +74,16 @@ export class ClarificationsService {
         throw new NotFoundException('Clarification not found');
       }
 
+      if (dto.categoryId) {
+        const category = await tx.category.findFirst({
+          where: {
+            id: dto.categoryId,
+            OR: [{ userId }, { isDefault: true }],
+          },
+        });
+        if (!category) throw new NotFoundException('Category not found');
+      }
+
       const nextTransactionType =
         dto.transactionType ?? clarification.transaction.type;
       const currentAmount = Number(clarification.transaction.amount);

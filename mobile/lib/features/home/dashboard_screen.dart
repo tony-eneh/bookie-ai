@@ -77,7 +77,7 @@ class _DashboardContent extends StatelessWidget {
         if (data.pendingClarifications > 0) ...[
           ClarificationBanner(
             count: data.pendingClarifications,
-            onTap: () => context.push('/transactions'),
+            onTap: () => context.push('/clarifications'),
           ),
           const SizedBox(height: 16),
         ],
