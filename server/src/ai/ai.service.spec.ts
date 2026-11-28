@@ -78,6 +78,13 @@ describe('AiService in mock mode', () => {
     expect(parsed.ambiguityFlags).toContain('AMOUNT_UNCLEAR');
   });
 
+  it('understands k and m shorthand', async () => {
+    const parsed = await ai.parseTransaction('paid 20k for fuel', {
+      defaultCurrency: 'NGN',
+    });
+    expect(parsed.amount).toBe(20000);
+  });
+
   it('reads the amount and an explicit currency', async () => {
     const parsed = await ai.parseTransaction(
       'Debit alert: KRW 12,000 spent at GS25',

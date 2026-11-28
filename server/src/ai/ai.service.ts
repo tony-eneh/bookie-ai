@@ -354,9 +354,16 @@ User data: ${JSON.stringify(userData)}
     defaultCurrency: string,
   ): ParsedTransaction {
     const lower = rawText.toLowerCase();
-    const amountMatch = rawText.match(/[\d,]+\.?\d*/);
+    // "4,500.00", "20k", "1.5m"
+    const amountMatch = rawText.match(/(\d[\d,]*(?:\.\d+)?)\s*(k|m)?\b/i);
+    const multiplier =
+      amountMatch?.[2]?.toLowerCase() === 'k'
+        ? 1_000
+        : amountMatch?.[2]?.toLowerCase() === 'm'
+          ? 1_000_000
+          : 1;
     const amount = amountMatch
-      ? parseFloat(amountMatch[0].replace(/,/g, ''))
+      ? parseFloat(amountMatch[1].replace(/,/g, '')) * multiplier
       : 0;
 
     const isIncome =
@@ -381,7 +388,7 @@ User data: ${JSON.stringify(userData)}
         // Alerts run on into the date/reference: "SPAR VI on 28-11-2026".
         merchantName =
           match[group]
-            .replace(/\s+(on|ref|via|date).*$/i, '')
+            .replace(/\s+(on|ref|via|date)\b.*$/i, '')
             .replace(/[\s.,-]+$/, '')
             .trim() || null;
         break;
