@@ -6,6 +6,7 @@ import 'package:bookie_ai/core/theme/app_colors.dart';
 import 'package:bookie_ai/core/utils/currency_formatter.dart';
 import 'package:bookie_ai/core/utils/date_formatter.dart';
 import 'package:bookie_ai/data/models/transaction_model.dart';
+import 'package:bookie_ai/data/providers/auth_provider.dart';
 import 'package:bookie_ai/data/providers/transactions_provider.dart';
 
 class TransactionDetailScreen extends ConsumerWidget {
@@ -76,6 +77,8 @@ class _TransactionDetailView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final primaryCurrency =
+        ref.watch(authProvider).user?.primaryCurrency ?? transaction.currency;
     final textTheme = Theme.of(context).textTheme;
     final isExpense = transaction.type == 'EXPENSE';
     final amountColor = isExpense ? AppColors.expense : AppColors.accent;
@@ -133,10 +136,12 @@ class _TransactionDetailView extends ConsumerWidget {
                     color: AppColors.textTertiary,
                   ),
                 ),
-                if (transaction.convertedAmount != null) ...[
+                // convertedAmount is in the user's primary currency.
+                if (transaction.convertedAmount != null &&
+                    primaryCurrency != transaction.currency) ...[
                   const SizedBox(height: 4),
                   Text(
-                    '≈ ${CurrencyFormatter.format(transaction.convertedAmount!, currency: 'USD')}',
+                    '≈ ${CurrencyFormatter.format(transaction.convertedAmount!, currency: primaryCurrency)}',
                     style: textTheme.bodyMedium?.copyWith(
                       color: AppColors.textSecondary,
                     ),
