@@ -8,13 +8,39 @@ class _Message {
   final String text;
   final bool isUser;
   final DateTime timestamp;
+  final List<String> suggestions;
 
   const _Message({
     required this.text,
     required this.isUser,
     required this.timestamp,
+    this.suggestions = const [],
   });
 }
+
+/// Parses the `{answer, suggestions}` payload returned by the assistant
+/// endpoints (inside the `{data: ...}` envelope).
+@visibleForTesting
+({String answer, List<String> suggestions}) parseAssistantReply(
+  Object? body,
+) {
+  final payload = body is Map && body['data'] is Map ? body['data'] : body;
+  if (payload is! Map) {
+    return (answer: _fallbackReply, suggestions: const <String>[]);
+  }
+  final answer = payload['answer'] ?? payload['response'];
+  final suggestions = payload['suggestions'];
+  return (
+    answer: answer is String && answer.trim().isNotEmpty
+        ? answer
+        : _fallbackReply,
+    suggestions: suggestions is List
+        ? suggestions.map((s) => s.toString()).toList()
+        : const <String>[],
+  );
+}
+
+const _fallbackReply = "I'm sorry, I couldn't process that right now.";
 
 class AssistantScreen extends ConsumerStatefulWidget {
   const AssistantScreen({super.key});
@@ -83,22 +109,20 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen>
         ApiConstants.assistantChat,
         data: {'message': text.trim()},
       );
-      final data = response.data;
-      final reply = data['data']?['response'] ??
-          data['response'] ??
-          "I'm sorry, I couldn't process that right now.";
+      final reply = parseAssistantReply(response.data);
 
       setState(() {
         _messages.add(_Message(
-          text: reply.toString(),
+          text: reply.answer,
           isUser: false,
           timestamp: DateTime.now(),
+          suggestions: reply.suggestions,
         ));
       });
     } catch (e) {
       setState(() {
         _messages.add(_Message(
-          text: "Sorry, something went wrong. Please try again.",
+          text: friendlyError(e),
           isUser: false,
           timestamp: DateTime.now(),
         ));
@@ -198,7 +222,36 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen>
       controller: _scrollController,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       itemCount: _messages.length,
-      itemBuilder: (context, index) => _buildBubble(_messages[index]),
+      itemBuilder: (context, index) {
+        final message = _messages[index];
+        final isLast = index == _messages.length - 1;
+        if (!isLast || message.isUser || message.suggestions.isEmpty) {
+          return _buildBubble(message);
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildBubble(message),
+            Padding(
+              padding: const EdgeInsets.only(top: 4, bottom: 8),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: message.suggestions
+                    .map((s) => ActionChip(
+                          label: Text(s, style: const TextStyle(fontSize: 13)),
+                          backgroundColor: AppColors.surface,
+                          side: BorderSide(
+                            color: AppColors.accent.withValues(alpha: 0.3),
+                          ),
+                          onPressed: _isLoading ? null : () => _sendMessage(s),
+                        ))
+                    .toList(),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
