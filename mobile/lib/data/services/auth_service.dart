@@ -12,14 +12,18 @@ class AuthService {
 
   AuthService(this._api);
 
+  /// [onboarding] carries choices made before the account existed
+  /// (primaryCurrency, incomeStyle, financialPersonality).
   Future<User> register(
     String email,
     String fullName,
-    String password,
-  ) async {
+    String password, {
+    Map<String, String> onboarding = const {},
+  }) async {
     final response = await _api.post(
       ApiConstants.register,
       data: {
+        ...onboarding,
         'email': email,
         'fullName': fullName,
         'password': password,
@@ -77,6 +81,20 @@ class AuthService {
   }
 
   Stream<void> get onSessionExpired => _api.onSessionExpired;
+
+  /// PATCH /users/me (fullName, country, language, primaryCurrency).
+  Future<User> updateProfile(Map<String, dynamic> data) async {
+    final response = await _api.patch(ApiConstants.userProfile, data: data);
+    return User.fromJson(response.data['data'] as Map<String, dynamic>);
+  }
+
+  /// PATCH /users/preferences (notificationMode, financialPersonality,
+  /// fxPreference, incomeStyle).
+  Future<User> updatePreferences(Map<String, dynamic> data) async {
+    final response =
+        await _api.patch(ApiConstants.userPreferences, data: data);
+    return User.fromJson(response.data['data'] as Map<String, dynamic>);
+  }
 
   Future<bool> isAuthenticated() => _api.hasValidToken();
 }

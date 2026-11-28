@@ -38,30 +38,34 @@ export class AuthService {
 
     const passwordHash = await hash(dto.password, 12);
 
-    const user = await this.prisma.user.create({
-      data: {
-        email: dto.email.trim().toLowerCase(),
-        passwordHash,
-        fullName: dto.fullName,
-      },
-    });
+    const user = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({
+        data: {
+          email: dto.email.trim().toLowerCase(),
+          passwordHash,
+          fullName: dto.fullName,
+          primaryCurrency: dto.primaryCurrency,
+          incomeStyle: dto.incomeStyle,
+          financialPersonality: dto.financialPersonality,
+          onboardingCompleted: true,
+        },
+      });
 
-    // Create default account for the user
-    await this.prisma.account.create({
-      data: {
-        userId: user.id,
-        name: 'Main Account',
-        type: 'BANK',
-        currency: user.primaryCurrency,
-        isPrimary: true,
-      },
+      // Every user starts with one account in their own currency.
+      await tx.account.create({
+        data: {
+          userId: created.id,
+          name: 'Main Account',
+          type: 'BANK',
+          currency: created.primaryCurrency,
+          isPrimary: true,
+        },
+      });
+      return created;
     });
 
     const tokens = await this.generateTokens(user.id, user.email);
-    return {
-      user: { id: user.id, email: user.email, fullName: user.fullName },
-      ...tokens,
-    };
+    return { user: publicUser(user), ...tokens };
   }
 
   async login(userId: string) {
@@ -71,10 +75,7 @@ export class AuthService {
     }
 
     const tokens = await this.generateTokens(user.id, user.email);
-    return {
-      user: { id: user.id, email: user.email, fullName: user.fullName },
-      ...tokens,
-    };
+    return { user: publicUser(user), ...tokens };
   }
 
   async validateUser(email: string, password: string) {
@@ -330,4 +331,13 @@ export class AuthService {
 
     return parsedValue;
   }
+}
+
+/** The user's profile as returned to clients (never the password hash). */
+function publicUser<T extends { passwordHash?: string | null }>(
+  user: T,
+): Omit<T, 'passwordHash'> {
+  const rest = { ...user };
+  delete rest.passwordHash;
+  return rest;
 }

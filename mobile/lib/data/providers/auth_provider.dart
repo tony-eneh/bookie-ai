@@ -112,7 +112,21 @@ class AuthNotifier extends StateNotifier<AuthState> {
   ) async {
     state = state.copyWith(status: AuthStatus.loading);
     try {
-      final user = await _authService.register(email, fullName, password);
+      final onboarding = <String, String>{
+        for (final (key, field) in const [
+          ('currency', 'primaryCurrency'),
+          ('income_style', 'incomeStyle'),
+          ('financial_personality', 'financialPersonality'),
+        ])
+          if (_storageService.getOnboardingPreference(key) case final value?)
+            field: value,
+      };
+      final user = await _authService.register(
+        email,
+        fullName,
+        password,
+        onboarding: onboarding,
+      );
       await _storageService.saveUser(user);
       state = state.copyWith(status: AuthStatus.authenticated, user: user);
     } on DioException catch (e) {
@@ -130,6 +144,16 @@ class AuthNotifier extends StateNotifier<AuthState> {
     } finally {
       await _signedOut();
     }
+  }
+
+  /// Saves profile fields (e.g. primaryCurrency) to the server.
+  Future<void> updateProfile(Map<String, dynamic> data) async {
+    await updateUser(await _authService.updateProfile(data));
+  }
+
+  /// Saves preference fields (e.g. notificationMode) to the server.
+  Future<void> updatePreferences(Map<String, dynamic> data) async {
+    await updateUser(await _authService.updatePreferences(data));
   }
 
   Future<void> updateUser(User user) async {
