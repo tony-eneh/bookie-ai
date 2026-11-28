@@ -51,10 +51,7 @@ class DashboardData {
                   Transaction.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
-      insights: (json['insights'] as List<dynamic>?)
-              ?.map((e) => e as String)
-              .toList() ??
-          [],
+      insights: _parseInsights(json['smartInsights'] ?? json['insights']),
     );
   }
 
@@ -78,6 +75,17 @@ class DashboardData {
   @override
   String toString() =>
       'DashboardData(income: $totalIncome, expenses: $totalExpenses, net: $netCashFlow)';
+
+  static List<String> _parseInsights(Object? raw) {
+    if (raw is! List) return const [];
+    return [
+      for (final item in raw)
+        if (item is String)
+          item
+        else if (item is Map && item['message'] is String)
+          item['message'] as String,
+    ];
+  }
 }
 
 class BudgetProgress {
@@ -96,9 +104,9 @@ class BudgetProgress {
   factory BudgetProgress.fromJson(Map<String, dynamic> json) {
     return BudgetProgress(
       name: json['name'] as String,
-      amount: parseDouble(json['amount']),
-      used: parseDouble(json['used']),
-      percentage: parseDouble(json['percentage']),
+      amount: parseDouble(json['budgetAmount'] ?? json['amount']),
+      used: parseDouble(json['spent'] ?? json['used']),
+      percentage: parseDouble(json['percentageUsed'] ?? json['percentage']),
     );
   }
 
@@ -133,7 +141,7 @@ class CategoryBreakdown {
     return CategoryBreakdown(
       name: json['name'] as String,
       icon: json['icon'] as String? ?? '📦',
-      amount: parseDouble(json['amount']),
+      amount: parseDouble(json['total'] ?? json['amount']),
       count: json['count'] as int? ?? 0,
     );
   }
@@ -212,17 +220,25 @@ class WeeklySummary {
   });
 
   factory WeeklySummary.fromJson(Map<String, dynamic> json) {
+    final vs = json['vsPreviousWeek'] is Map<String, dynamic>
+        ? json['vsPreviousWeek'] as Map<String, dynamic>
+        : json;
+    final topCategory = json['topCategory'];
     return WeeklySummary(
-      totalIncome: parseDouble(json['totalIncome']),
-      totalExpenses: parseDouble(json['totalExpenses']),
-      netCashFlow: parseDouble(json['netCashFlow']),
-      incomeChange: parseDouble(json['incomeChange']),
-      expenseChange: parseDouble(json['expenseChange']),
-      topCategories: (json['topCategories'] as List<dynamic>?)
-              ?.map((e) =>
+      totalIncome: parseDouble(json['income'] ?? json['totalIncome']),
+      totalExpenses: parseDouble(json['expenses'] ?? json['totalExpenses']),
+      netCashFlow: parseDouble(json['net'] ?? json['netCashFlow']),
+      incomeChange: parseDouble(vs['incomeChange']),
+      expenseChange: parseDouble(vs['expenseChange']),
+      topCategories: json['topCategories'] is List
+          ? (json['topCategories'] as List<dynamic>)
+              .map((e) =>
                   CategoryBreakdown.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          [],
+              .toList()
+          : [
+              if (topCategory is Map<String, dynamic>)
+                CategoryBreakdown.fromJson(topCategory),
+            ],
       pendingClarifications:
           json['pendingClarifications'] as int? ?? 0,
     );
