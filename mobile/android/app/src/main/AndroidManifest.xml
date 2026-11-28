@@ -2,6 +2,9 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <!-- Talking to the assistant (speech_to_text asks at first use). -->
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <!-- Reading bank alert SMS (opt-in from Settings; asked at runtime).
+         Fine for direct APK installs; Google Play restricts this permission. -->
+    <uses-permission android:name="android.permission.READ_SMS"/>
     <application
         android:label="BookieAI"
         android:name="${applicationName}"

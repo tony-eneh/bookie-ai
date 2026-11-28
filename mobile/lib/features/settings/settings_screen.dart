@@ -8,6 +8,7 @@ import 'package:bookie_ai/data/providers/auth_provider.dart';
 import 'package:bookie_ai/data/providers/dashboard_provider.dart';
 import 'package:bookie_ai/data/services/api_service.dart';
 import 'package:bookie_ai/features/settings/privacy_actions.dart';
+import 'package:bookie_ai/features/settings/sms_import_tile.dart';
 
 typedef _Option = ({String value, String label, String? description});
 
@@ -121,6 +122,9 @@ class SettingsScreen extends ConsumerWidget {
             onTap: () => _pickPreference(context, ref, 'fxPreference',
                 'Exchange rates', _fxOptions, user?.fxPreference),
           ),
+          const SizedBox(height: 8),
+          _buildSectionHeader(context, 'Automatic tracking'),
+          const SmsImportTile(),
           const SizedBox(height: 8),
           _buildSectionHeader(context, 'Privacy & data'),
           _buildTile(
