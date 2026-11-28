@@ -19,6 +19,7 @@ import { AssistantModule } from './assistant/assistant.module.js';
 import { ConnectedAccountsModule } from './connected-accounts/connected-accounts.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
 import { StatementImportsModule } from './statement-imports/statement-imports.module.js';
+import { AppController } from './app.controller.js';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { StatementImportsModule } from './statement-imports/statement-imports.mo
     NotificationsModule,
     StatementImportsModule,
   ],
+  controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}
