@@ -1,4 +1,6 @@
 import { NestFactory, Reflector } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
+import helmet from 'helmet';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -6,7 +8,12 @@ import { AppModule } from './app.module.js';
 import { ResponseTransformInterceptor } from './common/interceptors/response-transform.interceptor.js';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  // Behind Vercel's proxy: use X-Forwarded-For for the client IP (rate limits).
+  app.set('trust proxy', 1);
+  // Security headers. CSP is off: this is a JSON API, and the Swagger UI and
+  // password reset page use CDN assets / inline script.
+  app.use(helmet({ contentSecurityPolicy: false }));
   const configService = app.get(ConfigService);
   const apiPrefix = 'api';
   const host = configService.get<string>('HOST', '0.0.0.0');
