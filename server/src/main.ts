@@ -1,4 +1,4 @@
-import { NestFactory } from '@nestjs/core';
+import { NestFactory, Reflector } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -54,7 +54,7 @@ async function bootstrap() {
     }),
   );
 
-  app.useGlobalInterceptors(new ResponseTransformInterceptor());
+  app.useGlobalInterceptors(new ResponseTransformInterceptor(app.get(Reflector)));
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('BookieAI API')

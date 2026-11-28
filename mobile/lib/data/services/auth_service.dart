@@ -82,6 +82,11 @@ class AuthService {
 
   Stream<void> get onSessionExpired => _api.onSessionExpired;
 
+  /// Emails a reset link if the account exists (the server never says).
+  Future<void> requestPasswordReset(String email) async {
+    await _api.post(ApiConstants.forgotPassword, data: {'email': email});
+  }
+
   /// PATCH /users/me (fullName, country, language, primaryCurrency).
   Future<User> updateProfile(Map<String, dynamic> data) async {
     final response = await _api.patch(ApiConstants.userProfile, data: data);

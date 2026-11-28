@@ -119,7 +119,11 @@ export class AuthService {
     return { message: 'Logged out successfully' };
   }
 
-  async forgotPassword(email: string) {
+  /**
+   * [defaultPageUrl] is the reset page served by this API; PASSWORD_RESET_URL
+   * overrides it (e.g. for a future web app).
+   */
+  async forgotPassword(email: string, defaultPageUrl?: string) {
     const user = await this.usersService.findByEmail(email);
     if (!user) {
       return { message: 'If the email exists, a reset link has been sent' };
@@ -131,8 +135,11 @@ export class AuthService {
     );
     const resetToken = randomBytes(32).toString('hex');
     const tokenHash = this.hashOpaqueToken(resetToken);
-    const appUrl = (this.configService.get<string>('APP_URL') ?? 'http://localhost:3000').replace(/\/$/, '');
-    const resetUrl = `${appUrl}/reset-password?token=${resetToken}`;
+    const pageUrl =
+      this.configService.get<string>('PASSWORD_RESET_URL') ??
+      defaultPageUrl ??
+      'http://localhost:3000/api/auth/reset-password';
+    const resetUrl = `${pageUrl}?token=${resetToken}`;
 
     await this.prisma.$transaction(async (tx) => {
       await tx.passwordResetToken.deleteMany({

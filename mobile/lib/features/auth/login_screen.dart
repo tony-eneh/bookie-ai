@@ -162,7 +162,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton(
-                        onPressed: authState.isLoading ? null : () {},
+                        onPressed: authState.isLoading
+                            ? null
+                            : () => context.push(
+                                  '/forgot-password',
+                                  extra: _emailController.text.trim(),
+                                ),
                         child: const Text(
                           'Forgot Password?',
                           style: TextStyle(

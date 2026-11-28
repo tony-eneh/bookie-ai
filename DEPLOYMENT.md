@@ -32,7 +32,9 @@ Optional:
   sent inline.
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`,
   `SMTP_FROM`: password reset email. Without SMTP the reset link is only logged.
-- `APP_URL`: base URL used in password reset links.
+- `PASSWORD_RESET_URL`: optional. The reset email links to a page the API
+  serves itself (`/api/auth/reset-password`), built from the request host;
+  set this only to send users somewhere else. (`APP_URL` is no longer used.)
 - `GOOGLE_CLIENT_ID`: Google sign-in.
 - `FX_API_URL`: exchange rate source.
 - `CORS_MODE`, `CORS_ORIGINS`, `CORS_CREDENTIALS`: see `server/src/main.ts`.

@@ -6,6 +6,7 @@ import 'package:bookie_ai/features/splash/splash_screen.dart';
 import 'package:bookie_ai/features/onboarding/onboarding_screen.dart';
 import 'package:bookie_ai/features/auth/login_screen.dart';
 import 'package:bookie_ai/features/auth/register_screen.dart';
+import 'package:bookie_ai/features/auth/forgot_password_screen.dart';
 import 'package:bookie_ai/features/home/dashboard_screen.dart';
 import 'package:bookie_ai/features/accounts/accounts_screen.dart';
 import 'package:bookie_ai/features/accounts/account_detail_screen.dart';
@@ -69,6 +70,12 @@ abstract final class AppRouter {
       GoRoute(
         path: '/register',
         builder: (context, state) => const RegisterScreen(),
+      ),
+      GoRoute(
+        path: '/forgot-password',
+        builder: (context, state) => ForgotPasswordScreen(
+          initialEmail: state.extra as String? ?? '',
+        ),
       ),
       ShellRoute(
         navigatorKey: _shellNavigatorKey,
