@@ -5,7 +5,9 @@ abstract final class ApiConstants {
   static const String defaultBaseUrl = 'https://bookie-ai-api.vercel.app/api';
 
   static String? _dotenvValue(String key) {
-    if (!dotenv.isInitialized) {
+    // A developer's local .env (localhost URLs) must never steer a release
+    // build. Release builds use --dart-define overrides or the default.
+    if (kReleaseMode || !dotenv.isInitialized) {
       return null;
     }
 
