@@ -56,7 +56,7 @@ class _CreateAccountSheetState extends ConsumerState<CreateAccountSheet> {
         'name': _nameController.text.trim(),
         'type': _selectedType,
         'currency': _selectedCurrency,
-        'currentBalance': double.tryParse(_balanceController.text) ?? 0.0,
+        'initialBalance': double.tryParse(_balanceController.text) ?? 0.0,
         'isPrimary': _isPrimary,
       });
       if (mounted) Navigator.of(context).pop(true);
